@@ -287,7 +287,7 @@ class EggTimer {
         let particleCount = 0;
         const maxParticles = this.particleSettings.numParticles;
         
-        // Create grid-based sphere
+        // Create grid-based sphere with uniform particle size
         for (let x = 0; x < gridSize && particleCount < maxParticles; x++) {
             for (let y = 0; y < gridSize && particleCount < maxParticles; y++) {
                 const gridX = startX + x * spacing;
@@ -307,7 +307,7 @@ class EggTimer {
                         centerY: centerY,
                         distance: distance,
                         angle: Math.atan2(gridY - centerY, gridX - centerX),
-                        size: this.particleSettings.particleSize, // Use uniform size
+                        size: 6, // Hardcoded uniform size for all particles
                         speed: this.particleSettings.baseSpeed,
                         phase: Math.random() * Math.PI * 2,
                         randomOffset: Math.random() * Math.PI * 2,
@@ -323,7 +323,7 @@ class EggTimer {
             }
         }
         
-        console.log('Created', this.particles.length, 'particles in grid-based sphere formation');
+        console.log('Created', this.particles.length, 'particles with uniform size of 6px');
     }
     
     reinitParticleSystem() {
