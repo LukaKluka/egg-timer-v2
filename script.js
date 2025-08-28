@@ -4,7 +4,7 @@ class EggTimer {
         this.timer = null;
         this.timeRemaining = 0;
         this.isRunning = false;
-        this.selectedMode = 'hard'; // Default to hard boiled
+        this.selectedMode = null;
         this.selectedTemp = 'cold'; // Default to cold
         
         // Timer settings (in seconds)
@@ -20,57 +20,47 @@ class EggTimer {
     }
     
     initializeElements() {
-        // Progress and timer elements
-        this.progressEl = document.querySelector('.text-4xl.font-bold.text-black');
-        this.timeRemainingEl = document.querySelectorAll('.text-4xl.font-bold.text-black')[1];
-        
-        // Cooking mode elements
-        this.cookingModeBtn = document.querySelector('button.bg-black.text-white');
-        this.pauseBtn = document.querySelector('button.bg-gray-200');
-        
-        // Temperature elements
-        this.fridgeLabel = document.querySelector('.text-lg.font-bold');
-        this.roomLabel = document.querySelectorAll('.text-lg.font-bold')[1];
-        this.tempDial = document.querySelector('.w-8.h-8.bg-black.rounded-full');
-        
-        // Egg size elements
-        this.eggSizeCircles = document.querySelectorAll('.w-12.h-12.border-2.rounded-full');
-        
-        // Action buttons
+        this.timerDisplay = document.getElementById('timer-display');
+        this.timeRemainingEl = document.getElementById('time-remaining');
+        this.cookingModeDisplay = document.getElementById('cooking-mode-display');
+        this.controls = document.getElementById('controls');
         this.startBtn = document.getElementById('start-btn');
         this.stopBtn = document.getElementById('stop-btn');
         this.resetBtn = document.getElementById('reset-btn');
         this.alarmSound = document.getElementById('alarm-sound');
         
-        // Initialize with default values
-        this.updateProgressDisplay();
+        // Particle system
+        this.canvas = document.getElementById('particle-canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.particles = [];
+        this.animationId = null;
+        
+        this.cookingModeBtns = document.querySelectorAll('.cooking-mode-btn');
+        this.tempBtns = document.querySelectorAll('.temp-btn');
+        
+        // Initialize particle system immediately
+        this.initParticleSystem();
+        this.startParticleAnimation();
     }
     
     setupEventListeners() {
-        // Cooking mode button
-        if (this.cookingModeBtn) {
-            this.cookingModeBtn.addEventListener('click', () => this.toggleCookingMode());
-        }
-        
-        // Pause button
-        if (this.pauseBtn) {
-            this.pauseBtn.addEventListener('click', () => this.togglePause());
-        }
-        
-        // Temperature selection
-        if (this.fridgeLabel && this.roomLabel) {
-            this.fridgeLabel.addEventListener('click', () => this.selectTemperature('cold'));
-            this.roomLabel.addEventListener('click', () => this.selectTemperature('room'));
-        }
-        
-        // Egg size selection
-        this.eggSizeCircles.forEach((circle, index) => {
-            circle.addEventListener('click', () => this.selectEggSize(index));
+        // Cooking mode selection
+        this.cookingModeBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.selectCookingMode(btn));
         });
         
-        // Action buttons
+        // Temperature selection
+        this.tempBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.selectTemperature(btn));
+        });
+        
+        // Start button
         this.startBtn.addEventListener('click', () => this.startTimer());
+        
+        // Stop button
         this.stopBtn.addEventListener('click', () => this.stopTimer());
+        
+        // Reset button
         this.resetBtn.addEventListener('click', () => this.resetTimer());
         
         // Keyboard shortcuts
@@ -78,113 +68,44 @@ class EggTimer {
     }
     
     setDefaultSelection() {
-        // Set default selections
-        this.selectTemperature('cold');
-        this.selectEggSize(1); // Medium size
-        this.updateProgressDisplay();
-    }
-    
-    toggleCookingMode() {
-        const modes = ['soft', 'medium', 'hard'];
-        const currentIndex = modes.indexOf(this.selectedMode);
-        const nextIndex = (currentIndex + 1) % modes.length;
-        this.selectedMode = modes[nextIndex];
-        
-        // Update button text
-        const modeNames = {
-            soft: 'SOFT BOILED',
-            medium: 'MEDIUM BOILED',
-            hard: 'HARD BOILED'
-        };
-        
-        if (this.cookingModeBtn) {
-            this.cookingModeBtn.textContent = modeNames[this.selectedMode];
-        }
-        
-        this.updateProgressDisplay();
-    }
-    
-    togglePause() {
-        if (this.isRunning) {
-            this.stopTimer();
-        } else if (this.selectedMode && this.selectedTemp) {
-            this.startTimer();
+        // Set default temperature selection
+        const coldBtn = document.querySelector('[data-temp="cold"]');
+        if (coldBtn) {
+            this.selectTemperature(coldBtn);
         }
     }
     
-    selectTemperature(temp) {
-        this.selectedTemp = temp;
+    selectCookingMode(clickedBtn) {
+        // Remove active class from all buttons
+        this.cookingModeBtns.forEach(btn => btn.classList.remove('active'));
         
-        // Update visual selection
-        if (this.tempDial) {
-            if (temp === 'cold') {
-                this.tempDial.style.transform = 'rotate(0deg)';
-            } else {
-                this.tempDial.style.transform = 'rotate(180deg)';
-            }
-        }
+        // Add active class to clicked button
+        clickedBtn.classList.add('active');
         
-        this.updateProgressDisplay();
+        // Store selected mode
+        this.selectedMode = clickedBtn.dataset.mode;
+        
+        // Update start button state
+        this.updateStartButtonState();
     }
     
-    selectEggSize(index) {
-        const sizes = ['small', 'medium', 'large'];
-        this.selectedSize = sizes[index];
+    selectTemperature(clickedBtn) {
+        // Remove active class from all buttons
+        this.tempBtns.forEach(btn => btn.classList.remove('active'));
         
-        // Update visual selection
-        this.eggSizeCircles.forEach((circle, i) => {
-            circle.classList.remove('border-red-500', 'bg-gray-200');
-            circle.classList.add('border-black');
-            
-            if (i === index) {
-                circle.classList.remove('border-black');
-                circle.classList.add('border-red-500', 'bg-gray-200');
-            }
-        });
+        // Add active class to clicked button
+        clickedBtn.classList.add('active');
         
-        this.updateProgressDisplay();
+        // Store selected temperature
+        this.selectedTemp = clickedBtn.dataset.temp;
+        
+        // Update start button state
+        this.updateStartButtonState();
     }
     
-    updateProgressDisplay() {
-        if (!this.selectedMode || !this.selectedTemp) return;
-        
-        const totalTime = this.timerSettings[this.selectedMode][this.selectedTemp];
-        const elapsed = totalTime - this.timeRemaining;
-        const progress = Math.min(100, Math.max(0, (elapsed / totalTime) * 100));
-        
-        // Update progress percentage
-        if (this.progressEl) {
-            this.progressEl.textContent = `${Math.round(progress)}%`;
-        }
-        
-        // Update time remaining
-        if (this.timeRemainingEl) {
-            const minutes = Math.floor(this.timeRemaining / 60);
-            const seconds = this.timeRemaining % 60;
-            this.timeRemainingEl.textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-        
-        // Update progress arc
-        this.updateProgressArc(progress);
-    }
-    
-    updateProgressArc(progress) {
-        const progressArc = document.querySelector('.border-r-red-500.border-b-red-500');
-        if (progressArc) {
-            const rotation = (progress / 100) * 360;
-            progressArc.style.transform = `rotate(${rotation}deg)`;
-        }
-        
-        // Update progress dot position
-        const progressDot = document.querySelector('.absolute.top-2.right-2.w-3.h-3.bg-red-500');
-        if (progressDot) {
-            const angle = (progress / 100) * Math.PI * 2;
-            const radius = 80; // Approximate radius
-            const x = Math.cos(angle - Math.PI/2) * radius;
-            const y = Math.sin(angle - Math.PI/2) * radius;
-            progressDot.style.transform = `translate(${x}px, ${y}px)`;
-        }
+    updateStartButtonState() {
+        const canStart = this.selectedMode !== null && this.selectedTemp !== null;
+        this.startBtn.disabled = !canStart;
     }
     
     startTimer() {
@@ -201,18 +122,181 @@ class EggTimer {
         this.stopBtn.classList.remove('hidden');
         
         // Update display
-        this.updateProgressDisplay();
+        this.updateTimerDisplay();
         
         // Start countdown
         this.isRunning = true;
         this.timer = setInterval(() => {
             this.timeRemaining--;
-            this.updateProgressDisplay();
+            this.updateTimerDisplay();
             
             if (this.timeRemaining <= 0) {
                 this.timerComplete();
             }
         }, 1000);
+        
+        // Add countdown animation
+        this.timerDisplay.classList.add('countdown-active');
+    }
+    
+    updateTimerDisplay() {
+        const hours = Math.floor(this.timeRemaining / 3600);
+        const minutes = Math.floor((this.timeRemaining % 3600) / 60);
+        const seconds = this.timeRemaining % 60;
+        
+        this.timeRemainingEl.textContent = 
+            `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Update cooking mode display
+        if (this.selectedMode) {
+            const modeNames = {
+                soft: 'Soft Boiled',
+                medium: 'Medium Boiled',
+                hard: 'Hard Boiled'
+            };
+            this.cookingModeDisplay.textContent = modeNames[this.selectedMode];
+        } else {
+            this.cookingModeDisplay.textContent = 'Select mode to start';
+        }
+    }
+    
+    initParticleSystem() {
+        this.particles = [];
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        const maxRadius = Math.min(centerX, centerY) - 20;
+        
+        // Create concentric circles with dotted lines
+        const numCircles = 5;
+        const dotsPerCircle = 24;
+        
+        for (let circle = 0; circle < numCircles; circle++) {
+            const radius = (maxRadius * (circle + 1)) / numCircles;
+            
+            for (let dot = 0; dot < dotsPerCircle; dot++) {
+                const angle = (dot / dotsPerCircle) * Math.PI * 2;
+                const x = centerX + Math.cos(angle) * radius;
+                const y = centerY + Math.sin(angle) * radius;
+                
+                this.particles.push({
+                    x: x,
+                    y: y,
+                    originalX: x,
+                    originalY: y,
+                    radius: radius,
+                    angle: angle,
+                    circleIndex: circle,
+                    dotIndex: dot,
+                    size: 2 + (circle * 0.5), // Larger dots for outer circles
+                    speed: 0.02 + (circle * 0.01), // Faster for outer circles
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        
+        console.log('Created', this.particles.length, 'particles in', numCircles, 'concentric circles');
+    }
+    
+    drawParticles() {
+        if (!this.ctx) return;
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Calculate progress for color
+        let progress = 0;
+        if (this.isRunning && this.selectedMode && this.selectedTemp) {
+            const totalTime = this.timerSettings[this.selectedMode][this.selectedTemp];
+            progress = (totalTime - this.timeRemaining) / totalTime;
+        }
+        
+        // Draw all particles
+        this.particles.forEach(particle => {
+            this.ctx.beginPath();
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            
+            // Color based on progress
+            if (progress === 0) {
+                this.ctx.fillStyle = '#374151'; // Dark gray for idle state
+            } else if (progress < 0.3) {
+                this.ctx.fillStyle = '#fbbf24'; // Yellow
+            } else if (progress < 0.6) {
+                this.ctx.fillStyle = '#f59e0b'; // Orange
+            } else if (progress < 0.8) {
+                this.ctx.fillStyle = '#d97706'; // Dark orange
+            } else {
+                this.ctx.fillStyle = '#92400e'; // Brown
+            }
+            
+            this.ctx.fill();
+        });
+    }
+    
+    updateParticleAnimation() {
+        if (!this.ctx) return;
+        
+        // Calculate progress (0 to 1)
+        let progress = 0;
+        if (this.isRunning && this.selectedMode && this.selectedTemp) {
+            const totalTime = this.timerSettings[this.selectedMode][this.selectedTemp];
+            progress = (totalTime - this.timeRemaining) / totalTime;
+        }
+        
+        // Update particle positions based on progress
+        this.particles.forEach(particle => {
+            const centerX = this.canvas.width / 2;
+            const centerY = this.canvas.height / 2;
+            
+            // Calculate movement speed (faster at beginning, slower as it progresses)
+            const movementSpeed = 0.05 - (progress * 0.04); // From 0.05 to 0.01
+            const wiggleSpeed = 0.008 - (progress * 0.006); // From 0.008 to 0.002
+            const wiggleAmount = 8 - (progress * 6); // From 8px to 2px
+            
+            // Calculate new position with orbital movement and wiggle
+            const time = Date.now() * wiggleSpeed + particle.phase;
+            const orbitalAngle = particle.angle + (time * particle.speed);
+            
+            // Base position on circle
+            let targetX = centerX + Math.cos(orbitalAngle) * particle.radius;
+            let targetY = centerY + Math.sin(orbitalAngle) * particle.radius;
+            
+            // Add wiggle (more at beginning, less as it progresses)
+            if (wiggleAmount > 0) {
+                targetX += Math.sin(time * 2) * wiggleAmount;
+                targetY += Math.cos(time * 2) * wiggleAmount;
+            }
+            
+            // Move toward center as cooking progresses
+            if (progress > 0) {
+                const dx = centerX - targetX;
+                const dy = centerY - targetY;
+                targetX += dx * progress * 0.3;
+                targetY += dy * progress * 0.3;
+            }
+            
+            // Smooth movement
+            particle.x += (targetX - particle.x) * movementSpeed;
+            particle.y += (targetY - particle.y) * movementSpeed;
+        });
+        
+        // Draw all particles
+        this.drawParticles();
+        
+        // Continue animation
+        this.animationId = requestAnimationFrame(() => this.updateParticleAnimation());
+    }
+    
+    startParticleAnimation() {
+        console.log('Starting particle animation...');
+        this.initParticleSystem();
+        this.updateParticleAnimation();
+    }
+    
+    stopParticleAnimation() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
     }
     
     timerComplete() {
@@ -220,9 +304,16 @@ class EggTimer {
         clearInterval(this.timer);
         this.isRunning = false;
         
+        // Remove countdown animation and add completion state
+        this.timerDisplay.classList.remove('countdown-active');
+        this.timerDisplay.classList.add('timer-complete');
+        
         // Update display
-        this.timeRemainingEl.textContent = '00:00';
-        this.progressEl.textContent = '100%';
+        this.timeRemainingEl.textContent = '00:00:00';
+        this.cookingModeDisplay.textContent = 'Time\'s up! 🎉';
+        
+        // Stop particle animation
+        this.stopParticleAnimation();
         
         // Switch buttons back
         this.startBtn.classList.remove('hidden');
@@ -254,29 +345,16 @@ class EggTimer {
         this.startBtn.classList.remove('hidden');
         this.stopBtn.classList.add('hidden');
         
-        // Stop alarm if playing
-        if (this.alarmSound) {
-            this.alarmSound.pause();
-            this.alarmSound.currentTime = 0;
-        }
-    }
-    
-    resetTimer() {
-        // Stop timer if running
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
+        // Remove completion state
+        this.timerDisplay.classList.remove('timer-complete');
+        this.timerDisplay.classList.remove('countdown-active');
         
-        // Reset state
-        this.isRunning = false;
-        this.timeRemaining = 0;
-        
-        this.startBtn.classList.remove('hidden');
-        this.stopBtn.classList.add('hidden');
+        // Stop particle animation
+        this.stopParticleAnimation();
         
         // Reset timer display
-        this.updateProgressDisplay();
+        this.timeRemainingEl.textContent = '00:00:00';
+        this.cookingModeDisplay.textContent = 'Select mode to start';
         
         // Stop alarm if playing
         if (this.alarmSound) {
@@ -338,12 +416,44 @@ class EggTimer {
         }
     }
     
+    resetTimer() {
+        // Stop timer if running
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        
+        // Reset state
+        this.isRunning = false;
+        this.timeRemaining = 0;
+        
+        this.startBtn.classList.remove('hidden');
+        this.stopBtn.classList.add('hidden');
+        
+        // Remove completion state
+        this.timerDisplay.classList.remove('timer-complete');
+        this.timerDisplay.classList.remove('countdown-active');
+        
+        // Stop particle animation
+        this.stopParticleAnimation();
+        
+        // Reset timer display
+        this.timeRemainingEl.textContent = '00:00:00';
+        this.cookingModeDisplay.textContent = 'Select mode to start';
+        
+        // Stop alarm if playing
+        if (this.alarmSound) {
+            this.alarmSound.pause();
+            this.alarmSound.currentTime = 0;
+        }
+    }
+    
     handleKeyboard(e) {
         // Space bar to start/stop timer
         if (e.code === 'Space' && !e.target.matches('button')) {
             e.preventDefault();
             if (this.isRunning) {
-                this.stopTimer();
+                this.resetTimer();
             } else if (this.selectedMode && this.selectedTemp) {
                 this.startTimer();
             }
@@ -354,23 +464,22 @@ class EggTimer {
             this.resetTimer();
         }
         
-        // M key to toggle cooking mode
-        if (e.code === 'KeyM') {
-            this.toggleCookingMode();
+        // Number keys for quick mode selection
+        if (e.code >= 'Digit1' && e.code <= 'Digit3') {
+            const modes = ['soft', 'medium', 'hard'];
+            const index = parseInt(e.code.replace('Digit', '')) - 1;
+            if (modes[index]) {
+                const btn = document.querySelector(`[data-mode="${modes[index]}"]`);
+                if (btn) this.selectCookingMode(btn);
+            }
         }
         
         // T key for temperature toggle
         if (e.code === 'KeyT') {
-            const newTemp = this.selectedTemp === 'cold' ? 'room' : 'cold';
-            this.selectTemperature(newTemp);
-        }
-        
-        // S key for egg size toggle
-        if (e.code === 'KeyS') {
-            const sizes = ['small', 'medium', 'large'];
-            const currentIndex = sizes.indexOf(this.selectedSize);
-            const nextIndex = (currentIndex + 1) % sizes.length;
-            this.selectEggSize(nextIndex);
+            const currentTemp = this.selectedTemp;
+            const newTemp = currentTemp === 'cold' ? 'room' : 'cold';
+            const btn = document.querySelector(`[data-temp="${newTemp}"]`);
+            if (btn) this.selectTemperature(btn);
         }
     }
     
