@@ -7,97 +7,77 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <!-- iPhone Frame -->
-    <div class="max-w-sm mx-auto bg-black rounded-[3rem] p-2 shadow-2xl">
-        <div class="bg-white rounded-[2.5rem] overflow-hidden">
-            <!-- Status Bar -->
-            <div class="bg-white px-6 py-2 flex justify-between items-center">
-                <span class="text-sm font-medium">9:41</span>
-                <div class="flex items-center space-x-1">
-                    <div class="w-4 h-2 bg-black rounded-sm"></div>
-                    <div class="w-1 h-1 bg-black rounded-full"></div>
-                    <div class="w-4 h-2 bg-black rounded-sm"></div>
-                </div>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-md mx-auto space-y-6">
+        <!-- Progress and Timer Section -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm">
+            <div class="flex justify-between items-start mb-6">
+                <div class="text-4xl font-bold text-black">64%</div>
+                <div class="text-4xl font-bold text-black">00:36</div>
             </div>
             
-            <!-- Dynamic Island -->
-            <div class="w-24 h-6 bg-black rounded-full mx-auto mb-4"></div>
-            
-            <!-- Main Content -->
-            <div class="px-6 pb-6">
-                <!-- Header -->
-                <div class="mb-8">
-                    <h1 class="text-2xl font-bold text-gray-800">Egg Timer</h1>
+            <!-- Circular Progress Indicator -->
+            <div class="relative w-48 h-48 mx-auto">
+                <canvas id="progress-canvas" class="w-full h-full" width="192" height="192"></canvas>
+                <!-- Egg visualization in center -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-16 h-20 bg-gray-700 rounded-full opacity-20"></div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Timer Display -->
-                <div id="timer-display" class="mb-8">
-                    <div class="relative w-48 h-48 mx-auto">
-                        <!-- Particle Animation Canvas -->
-                        <canvas id="particle-canvas" class="w-full h-full rounded-full" width="192" height="192"></canvas>
-                        <!-- Timer Text Overlay -->
-                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <div id="time-remaining" class="text-3xl font-bold text-gray-800">00:00:00</div>
-                            <div id="cooking-mode-display" class="text-sm text-gray-600 mt-1">Select mode to start</div>
+        <!-- Cooking Mode Section -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm">
+            <div class="text-sm text-gray-600 mb-3">Cooking mode</div>
+            <div class="flex items-center space-x-3">
+                <button id="cooking-mode-btn" class="flex-1 bg-black text-white py-4 px-6 rounded-xl font-bold text-lg flex items-center justify-between">
+                    <span>HARD BOILED</span>
+                    <div class="flex flex-col">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        <svg class="w-4 h-4 -mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                </button>
+                <button id="pause-btn" class="bg-gray-200 hover:bg-gray-300 p-4 rounded-xl transition-colors">
+                    <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Start Temperature Section -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm">
+            <div class="text-sm text-gray-600 mb-3">Start temperature</div>
+            <div class="bg-gray-200 rounded-xl p-4 relative">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-black">FRIDGE</span>
+                    <div class="relative">
+                        <div class="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                            <div class="w-2 h-6 bg-red-500 rounded-full transform -rotate-45"></div>
                         </div>
                     </div>
+                    <span class="font-bold text-black">ROOM</span>
                 </div>
+            </div>
+        </div>
 
-                <!-- Settings Cards -->
-                <div id="controls" class="space-y-4">
-                    <!-- Cooking Mode Card -->
-                    <div class="bg-white rounded-xl p-4 border border-gray-200">
-                        <h3 class="text-sm font-medium text-gray-700 mb-3">Cooking Mode</h3>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button class="cooking-mode-btn bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded-lg text-sm font-medium transition-colors" data-mode="soft">
-                                Soft
-                            </button>
-                            <button class="cooking-mode-btn bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded-lg text-sm font-medium transition-colors" data-mode="medium">
-                                Medium
-                            </button>
-                            <button class="cooking-mode-btn bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded-lg text-sm font-medium transition-colors" data-mode="hard">
-                                Hard
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Temperature Card -->
-                    <div class="bg-white rounded-xl p-4 border border-gray-200">
-                        <h3 class="text-sm font-medium text-gray-700 mb-3">Temperature</h3>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button class="temp-btn bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded-lg text-sm font-medium transition-colors" data-temp="cold">
-                                Cold
-                            </button>
-                            <button class="temp-btn bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-3 rounded-lg text-sm font-medium transition-colors" data-temp="room">
-                                Room
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="space-y-2">
-                        <button id="start-btn" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            Start Timer
-                        </button>
-                        <button id="stop-btn" class="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-medium transition-colors hidden">
-                            Stop Timer
-                        </button>
-                        <button id="reset-btn" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm font-medium transition-colors">
-                            Reset
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Bottom Navigation -->
-                <div class="mt-8 pt-4 border-t border-gray-200">
-                    <div class="flex justify-center items-center space-x-8 text-sm">
-                        <span class="text-gray-400">←</span>
-                        <span class="font-medium text-gray-800">Timer</span>
-                        <span class="text-gray-400">Settings</span>
-                        <span class="text-gray-400">→</span>
-                    </div>
-                </div>
+        <!-- Egg Size Section -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm">
+            <div class="text-sm text-gray-600 mb-3">Egg size</div>
+            <div class="grid grid-cols-3 gap-2">
+                <button class="egg-size-btn bg-gray-200 hover:bg-gray-300 p-4 rounded-xl transition-colors flex items-center justify-center" data-size="small">
+                    <div class="w-8 h-10 border-2 border-black rounded-full"></div>
+                </button>
+                <button class="egg-size-btn bg-gray-300 p-4 rounded-xl transition-colors flex items-center justify-center" data-size="medium">
+                    <div class="w-8 h-10 border-2 border-red-500 rounded-full"></div>
+                </button>
+                <button class="egg-size-btn bg-gray-200 hover:bg-gray-300 p-4 rounded-xl transition-colors flex items-center justify-center" data-size="large">
+                    <div class="w-8 h-10 border-2 border-black rounded-full"></div>
+                </button>
             </div>
         </div>
     </div>
