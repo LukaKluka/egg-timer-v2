@@ -159,7 +159,7 @@ class EggTimer {
     
     resetParticleSettings() {
         this.particleSettings = {
-            numParticles: 120,
+            numParticles: 1000,       // Default to 1000 particles
             baseSpeed: 0,             // No movement
             wiggleAmount: 0,          // No wiggle
             randomFactor: 0,          // No randomness
