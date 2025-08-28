@@ -23,7 +23,11 @@ class EggTimer {
             showSphere: true,         // Show central sphere
             showEmitter: false,       // Show particle emitter
             sphereRadius: 30,         // Sphere radius
-            emitterRadius: 40         // Emitter radius
+            emitterRadius: 40,        // Emitter radius
+            sphereRotation: 0,        // Sphere rotation speed
+            particleSize: 2,          // Uniform particle size
+            gridSpacing: 8,           // Grid spacing for sphere formation
+            expansionFactor: 0        // How much particles expand outward
         };
         
         this.initializeElements();
