@@ -460,26 +460,33 @@ class EggTimer {
         
         const centerX = this.canvas.width / 2;
         const centerY = this.canvas.height / 2;
+        const time = Date.now() * 0.001;
         
-        // Update particle positions with floating movement
+        // Update particle positions with sphere rotation and expansion
         this.particles.forEach(particle => {
-            // Add floating movement
-            const time = Date.now() * 0.001;
+            // Apply sphere rotation
+            const rotatedAngle = particle.angle + (time * this.particleSettings.sphereRotation);
+            
+            // Calculate base position with rotation
+            let baseX = centerX + Math.cos(rotatedAngle) * particle.distance;
+            let baseY = centerY + Math.sin(rotatedAngle) * particle.distance;
+            
+            // Apply expansion factor - particles move outward from center
+            const expansionDistance = particle.distance + (this.particleSettings.expansionFactor * 20);
+            baseX = centerX + Math.cos(rotatedAngle) * expansionDistance;
+            baseY = centerY + Math.sin(rotatedAngle) * expansionDistance;
+            
+            // Add floating movement based on controls
             const floatX = Math.sin(time + particle.phase) * this.particleSettings.wiggleAmount * 0.5;
             const floatY = Math.cos(time + particle.phase * 0.7) * this.particleSettings.wiggleAmount * 0.5;
             
-            // Add random drift
+            // Add random drift based on controls
             const randomX = Math.sin(time * 0.5 + particle.randomOffset) * this.particleSettings.randomFactor * 2;
             const randomY = Math.cos(time * 0.3 + particle.randomOffset) * this.particleSettings.randomFactor * 2;
             
-            // Calculate target position with orbital movement
-            const orbitalAngle = particle.angle + (time * particle.speed);
-            let targetX = centerX + Math.cos(orbitalAngle) * particle.radius;
-            let targetY = centerY + Math.sin(orbitalAngle) * particle.radius;
-            
-            // Add floating and random movement
-            targetX += floatX + randomX;
-            targetY += floatY + randomY;
+            // Calculate target position
+            let targetX = baseX + floatX + randomX;
+            let targetY = baseY + floatY + randomY;
             
             // Move toward center as cooking progresses (if sphere is shown)
             if (progress > 0 && this.particleSettings.showSphere) {
