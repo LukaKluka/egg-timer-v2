@@ -1,0 +1,173 @@
+/* Custom styles for Egg Timer */
+
+/* Smooth transitions for all interactive elements */
+* {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Active state for cooking mode buttons */
+.cooking-mode-btn.active {
+    background-color: #374151 !important;
+    color: white !important;
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(55, 65, 81, 0.2);
+}
+
+/* Active state for temperature buttons */
+.temp-btn.active {
+    background-color: #374151 !important;
+    color: white !important;
+    transform: scale(1.02);
+    box-shadow: 0 2px 8px rgba(55, 65, 81, 0.2);
+}
+
+/* Particle animation canvas */
+#particle-canvas {
+    background: radial-gradient(circle, #f8fafc 0%, #f1f5f9 100%);
+    border: 2px solid #e5e7eb;
+}
+
+/* Particle animation states */
+.particle-raw {
+    animation: wiggle 2s ease-in-out infinite;
+}
+
+.particle-soft {
+    animation: gentle-wiggle 3s ease-in-out infinite;
+}
+
+.particle-medium {
+    animation: slight-wiggle 4s ease-in-out infinite;
+}
+
+.particle-hard {
+    animation: none;
+}
+
+@keyframes wiggle {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(2px, -2px) rotate(1deg); }
+    50% { transform: translate(-1px, 1px) rotate(-1deg); }
+    75% { transform: translate(1px, -1px) rotate(0.5deg); }
+}
+
+@keyframes gentle-wiggle {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(1px, -1px) rotate(0.5deg); }
+}
+
+@keyframes slight-wiggle {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(0.5px, -0.5px) rotate(0.2deg); }
+}
+
+/* Timer display animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+#timer-display {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Timer countdown animation */
+@keyframes countdown {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.countdown-active {
+    animation: countdown 1s infinite;
+}
+
+/* Success state for completed timer */
+.timer-complete #particle-canvas {
+    background: radial-gradient(circle, #dcfce7 0%, #bbf7d0 100%);
+    border-color: #10b981;
+}
+
+/* Button hover effects */
+.cooking-mode-btn:hover:not(.active),
+.temp-btn:hover:not(.active) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Disabled state styling */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* Focus states for accessibility */
+button:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Card hover effects */
+.bg-white.rounded-xl {
+    transition: all 0.2s ease-in-out;
+}
+
+.bg-white.rounded-xl:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* iPhone frame styling */
+.max-w-sm.mx-auto {
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+/* Status bar styling */
+.bg-white.px-6.py-2 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Dynamic Island animation */
+.w-24.h-6.bg-black.rounded-full {
+    transition: all 0.3s ease;
+}
+
+.w-24.h-6.bg-black.rounded-full:hover {
+    transform: scale(1.05);
+}
+
+/* Bottom navigation styling */
+.mt-8.pt-4.border-t {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+} 
