@@ -168,7 +168,7 @@ class EggTimer {
             sphereRadius: 30,
             emitterRadius: 40,
             sphereRotation: 0.02,     // Default rotation
-            particleSize: 2,
+            particleSize: 6,          // Uniform particle size (radius in px)
             gridSpacing: 8,
             expansionFactor: 0
         };
