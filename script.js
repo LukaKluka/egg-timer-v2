@@ -271,34 +271,55 @@ class EggTimer {
         const centerY = this.canvas.height / 2;
         const maxRadius = Math.min(centerX, centerY) - 20;
         
-        // Create particles in a more natural distribution
-        const numParticles = this.particleSettings.numParticles;
+        // Create particles in a grid-based sphere formation
+        const spacing = this.particleSettings.gridSpacing;
+        const sphereRadius = this.particleSettings.sphereRadius;
         
-        for (let i = 0; i < numParticles; i++) {
-            // Random distribution with some clustering
-            const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * maxRadius * 0.8 + maxRadius * 0.2;
-            
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-            
-            this.particles.push({
-                x: x,
-                y: y,
-                originalX: x,
-                originalY: y,
-                radius: radius,
-                angle: angle,
-                size: 1.5 + Math.random() * 2, // Random size between 1.5-3.5
-                speed: this.particleSettings.baseSpeed + (Math.random() - 0.5) * this.particleSettings.randomFactor * 0.02,
-                phase: Math.random() * Math.PI * 2,
-                randomOffset: Math.random() * Math.PI * 2,
-                velocityX: (Math.random() - 0.5) * 0.5,
-                velocityY: (Math.random() - 0.5) * 0.5
-            });
+        // Calculate grid dimensions for sphere
+        const gridSize = Math.ceil(sphereRadius * 2 / spacing);
+        const startX = centerX - (gridSize * spacing) / 2;
+        const startY = centerY - (gridSize * spacing) / 2;
+        
+        let particleCount = 0;
+        const maxParticles = this.particleSettings.numParticles;
+        
+        // Create grid-based sphere
+        for (let x = 0; x < gridSize && particleCount < maxParticles; x++) {
+            for (let y = 0; y < gridSize && particleCount < maxParticles; y++) {
+                const gridX = startX + x * spacing;
+                const gridY = startY + y * spacing;
+                
+                // Calculate distance from center
+                const distance = Math.sqrt((gridX - centerX) ** 2 + (gridY - centerY) ** 2);
+                
+                // Only place particles within sphere radius
+                if (distance <= sphereRadius) {
+                    this.particles.push({
+                        x: gridX,
+                        y: gridY,
+                        originalX: gridX,
+                        originalY: gridY,
+                        centerX: centerX,
+                        centerY: centerY,
+                        distance: distance,
+                        angle: Math.atan2(gridY - centerY, gridX - centerX),
+                        size: this.particleSettings.particleSize, // Use uniform size
+                        speed: this.particleSettings.baseSpeed,
+                        phase: Math.random() * Math.PI * 2,
+                        randomOffset: Math.random() * Math.PI * 2,
+                        velocityX: 0,
+                        velocityY: 0,
+                        expansionDirection: {
+                            x: (gridX - centerX) / distance,
+                            y: (gridY - centerY) / distance
+                        }
+                    });
+                    particleCount++;
+                }
+            }
         }
         
-        console.log('Created', this.particles.length, 'particles with improved distribution');
+        console.log('Created', this.particles.length, 'particles in grid-based sphere formation');
     }
     
     reinitParticleSystem() {
