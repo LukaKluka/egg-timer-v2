@@ -17,15 +17,15 @@ class EggTimer {
         // Particle system settings (ADJUSTABLE VIA DEV CONTROLS)
         this.particleSettings = {
             numParticles: 120,        // Total number of particles
-            baseSpeed: 0.02,          // Base movement speed
-            wiggleAmount: 8,          // Wiggle movement amount
-            randomFactor: 0.5,        // Randomness factor
+            baseSpeed: 0,             // Base movement speed (0 = no movement)
+            wiggleAmount: 0,          // Wiggle movement amount (0 = no wiggle)
+            randomFactor: 0,          // Randomness factor (0 = no randomness)
             showSphere: true,         // Show central sphere
             showEmitter: false,       // Show particle emitter
             sphereRadius: 30,         // Sphere radius
             emitterRadius: 40,        // Emitter radius
-            sphereRotation: 0,        // Sphere rotation speed
-            particleSize: 2,          // Uniform particle size
+            sphereRotation: 0.02,     // Sphere rotation speed (default rotation)
+            particleSize: 6,          // Uniform particle size (radius in px)
             gridSpacing: 8,           // Grid spacing for sphere formation
             expansionFactor: 0        // How much particles expand outward
         };
