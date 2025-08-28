@@ -14,8 +14,21 @@ class EggTimer {
             hard: { cold: 600, room: 540 }     // 10 min cold, 9 min room
         };
         
+        // Particle system settings (ADJUSTABLE VIA DEV CONTROLS)
+        this.particleSettings = {
+            numParticles: 120,        // Total number of particles
+            baseSpeed: 0.02,          // Base movement speed
+            wiggleAmount: 8,          // Wiggle movement amount
+            randomFactor: 0.5,        // Randomness factor
+            showSphere: true,         // Show central sphere
+            showEmitter: false,       // Show particle emitter
+            sphereRadius: 30,         // Sphere radius
+            emitterRadius: 40         // Emitter radius
+        };
+        
         this.initializeElements();
         this.setupEventListeners();
+        this.setupDevControls();
         this.setDefaultSelection();
     }
     
@@ -65,6 +78,94 @@ class EggTimer {
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+    }
+    
+    setupDevControls() {
+        // Particle count controls
+        document.getElementById('particles-down').addEventListener('click', () => {
+            this.particleSettings.numParticles = Math.max(10, this.particleSettings.numParticles - 10);
+            this.updateDevDisplay();
+            this.reinitParticleSystem();
+        });
+        
+        document.getElementById('particles-up').addEventListener('click', () => {
+            this.particleSettings.numParticles = Math.min(500, this.particleSettings.numParticles + 10);
+            this.updateDevDisplay();
+            this.reinitParticleSystem();
+        });
+        
+        // Speed controls
+        document.getElementById('speed-down').addEventListener('click', () => {
+            this.particleSettings.baseSpeed = Math.max(0.001, this.particleSettings.baseSpeed - 0.005);
+            this.updateDevDisplay();
+        });
+        
+        document.getElementById('speed-up').addEventListener('click', () => {
+            this.particleSettings.baseSpeed = Math.min(0.1, this.particleSettings.baseSpeed + 0.005);
+            this.updateDevDisplay();
+        });
+        
+        // Wiggle controls
+        document.getElementById('wiggle-down').addEventListener('click', () => {
+            this.particleSettings.wiggleAmount = Math.max(0, this.particleSettings.wiggleAmount - 1);
+            this.updateDevDisplay();
+        });
+        
+        document.getElementById('wiggle-up').addEventListener('click', () => {
+            this.particleSettings.wiggleAmount = Math.min(20, this.particleSettings.wiggleAmount + 1);
+            this.updateDevDisplay();
+        });
+        
+        // Random controls
+        document.getElementById('random-down').addEventListener('click', () => {
+            this.particleSettings.randomFactor = Math.max(0, this.particleSettings.randomFactor - 0.1);
+            this.updateDevDisplay();
+        });
+        
+        document.getElementById('random-up').addEventListener('click', () => {
+            this.particleSettings.randomFactor = Math.min(2, this.particleSettings.randomFactor + 0.1);
+            this.updateDevDisplay();
+        });
+        
+        // Toggle controls
+        document.getElementById('reset-particles').addEventListener('click', () => {
+            this.resetParticleSettings();
+        });
+        
+        document.getElementById('toggle-sphere').addEventListener('click', () => {
+            this.particleSettings.showSphere = !this.particleSettings.showSphere;
+            this.updateDevDisplay();
+        });
+        
+        document.getElementById('toggle-emitter').addEventListener('click', () => {
+            this.particleSettings.showEmitter = !this.particleSettings.showEmitter;
+            this.updateDevDisplay();
+        });
+        
+        // Initialize display
+        this.updateDevDisplay();
+    }
+    
+    updateDevDisplay() {
+        document.getElementById('particle-count').textContent = this.particleSettings.numParticles;
+        document.getElementById('speed-value').textContent = this.particleSettings.baseSpeed.toFixed(3);
+        document.getElementById('wiggle-value').textContent = this.particleSettings.wiggleAmount;
+        document.getElementById('random-value').textContent = this.particleSettings.randomFactor.toFixed(1);
+    }
+    
+    resetParticleSettings() {
+        this.particleSettings = {
+            numParticles: 120,
+            baseSpeed: 0.02,
+            wiggleAmount: 8,
+            randomFactor: 0.5,
+            showSphere: true,
+            showEmitter: false,
+            sphereRadius: 30,
+            emitterRadius: 40
+        };
+        this.updateDevDisplay();
+        this.reinitParticleSystem();
     }
     
     setDefaultSelection() {
@@ -166,35 +267,40 @@ class EggTimer {
         const centerY = this.canvas.height / 2;
         const maxRadius = Math.min(centerX, centerY) - 20;
         
-        // Create concentric circles with dotted lines
-        const numCircles = 5;
-        const dotsPerCircle = 24;
+        // Create particles in a more natural distribution
+        const numParticles = this.particleSettings.numParticles;
         
-        for (let circle = 0; circle < numCircles; circle++) {
-            const radius = (maxRadius * (circle + 1)) / numCircles;
+        for (let i = 0; i < numParticles; i++) {
+            // Random distribution with some clustering
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.random() * maxRadius * 0.8 + maxRadius * 0.2;
             
-            for (let dot = 0; dot < dotsPerCircle; dot++) {
-                const angle = (dot / dotsPerCircle) * Math.PI * 2;
-                const x = centerX + Math.cos(angle) * radius;
-                const y = centerY + Math.sin(angle) * radius;
-                
-                this.particles.push({
-                    x: x,
-                    y: y,
-                    originalX: x,
-                    originalY: y,
-                    radius: radius,
-                    angle: angle,
-                    circleIndex: circle,
-                    dotIndex: dot,
-                    size: 2 + (circle * 0.5), // Larger dots for outer circles
-                    speed: 0.02 + (circle * 0.01), // Faster for outer circles
-                    phase: Math.random() * Math.PI * 2
-                });
-            }
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            
+            this.particles.push({
+                x: x,
+                y: y,
+                originalX: x,
+                originalY: y,
+                radius: radius,
+                angle: angle,
+                size: 1.5 + Math.random() * 2, // Random size between 1.5-3.5
+                speed: this.particleSettings.baseSpeed + (Math.random() - 0.5) * this.particleSettings.randomFactor * 0.02,
+                phase: Math.random() * Math.PI * 2,
+                randomOffset: Math.random() * Math.PI * 2,
+                velocityX: (Math.random() - 0.5) * 0.5,
+                velocityY: (Math.random() - 0.5) * 0.5
+            });
         }
         
-        console.log('Created', this.particles.length, 'particles in', numCircles, 'concentric circles');
+        console.log('Created', this.particles.length, 'particles with improved distribution');
+    }
+    
+    reinitParticleSystem() {
+        this.stopParticleAnimation();
+        this.initParticleSystem();
+        this.startParticleAnimation();
     }
     
     drawParticles() {
@@ -208,6 +314,16 @@ class EggTimer {
         if (this.isRunning && this.selectedMode && this.selectedTemp) {
             const totalTime = this.timerSettings[this.selectedMode][this.selectedTemp];
             progress = (totalTime - this.timeRemaining) / totalTime;
+        }
+        
+        // Draw central sphere if enabled
+        if (this.particleSettings.showSphere) {
+            this.drawSphere(progress);
+        }
+        
+        // Draw emitter if enabled
+        if (this.particleSettings.showEmitter) {
+            this.drawEmitter();
         }
         
         // Draw all particles
@@ -232,6 +348,77 @@ class EggTimer {
         });
     }
     
+    drawSphere(progress) {
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        const radius = this.particleSettings.sphereRadius;
+        
+        // Create gradient for sphere
+        const gradient = this.ctx.createRadialGradient(
+            centerX - radius * 0.3, centerY - radius * 0.3, 0,
+            centerX, centerY, radius
+        );
+        
+        // Color based on progress
+        let baseColor = '#e5e7eb'; // Light gray for idle
+        if (progress > 0) {
+            if (progress < 0.3) baseColor = '#fef3c7'; // Light yellow
+            else if (progress < 0.6) baseColor = '#fed7aa'; // Light orange
+            else if (progress < 0.8) baseColor = '#fdba74'; // Orange
+            else baseColor = '#fb923c'; // Dark orange
+        }
+        
+        gradient.addColorStop(0, baseColor);
+        gradient.addColorStop(0.7, baseColor);
+        gradient.addColorStop(1, this.adjustBrightness(baseColor, -20));
+        
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        this.ctx.fillStyle = gradient;
+        this.ctx.fill();
+        
+        // Add highlight
+        this.ctx.beginPath();
+        this.ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
+        this.ctx.fillStyle = this.adjustBrightness(baseColor, 30);
+        this.ctx.fill();
+    }
+    
+    drawEmitter() {
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        const radius = this.particleSettings.emitterRadius;
+        
+        this.ctx.beginPath();
+        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        this.ctx.strokeStyle = '#ef4444';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        
+        // Draw emitter particles
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + Date.now() * 0.001;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = centerY + Math.sin(angle) * radius;
+            
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+            this.ctx.fillStyle = '#ef4444';
+            this.ctx.fill();
+        }
+    }
+    
+    adjustBrightness(color, percent) {
+        const num = parseInt(color.replace("#", ""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+    }
+    
     updateParticleAnimation() {
         if (!this.ctx) return;
         
@@ -242,41 +429,62 @@ class EggTimer {
             progress = (totalTime - this.timeRemaining) / totalTime;
         }
         
-        // Update particle positions based on progress
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+        
+        // Update particle positions with floating movement
         this.particles.forEach(particle => {
-            const centerX = this.canvas.width / 2;
-            const centerY = this.canvas.height / 2;
+            // Add floating movement
+            const time = Date.now() * 0.001;
+            const floatX = Math.sin(time + particle.phase) * this.particleSettings.wiggleAmount * 0.5;
+            const floatY = Math.cos(time + particle.phase * 0.7) * this.particleSettings.wiggleAmount * 0.5;
             
-            // Calculate movement speed (faster at beginning, slower as it progresses)
-            const movementSpeed = 0.05 - (progress * 0.04); // From 0.05 to 0.01
-            const wiggleSpeed = 0.008 - (progress * 0.006); // From 0.008 to 0.002
-            const wiggleAmount = 8 - (progress * 6); // From 8px to 2px
+            // Add random drift
+            const randomX = Math.sin(time * 0.5 + particle.randomOffset) * this.particleSettings.randomFactor * 2;
+            const randomY = Math.cos(time * 0.3 + particle.randomOffset) * this.particleSettings.randomFactor * 2;
             
-            // Calculate new position with orbital movement and wiggle
-            const time = Date.now() * wiggleSpeed + particle.phase;
+            // Calculate target position with orbital movement
             const orbitalAngle = particle.angle + (time * particle.speed);
-            
-            // Base position on circle
             let targetX = centerX + Math.cos(orbitalAngle) * particle.radius;
             let targetY = centerY + Math.sin(orbitalAngle) * particle.radius;
             
-            // Add wiggle (more at beginning, less as it progresses)
-            if (wiggleAmount > 0) {
-                targetX += Math.sin(time * 2) * wiggleAmount;
-                targetY += Math.cos(time * 2) * wiggleAmount;
-            }
+            // Add floating and random movement
+            targetX += floatX + randomX;
+            targetY += floatY + randomY;
             
-            // Move toward center as cooking progresses
-            if (progress > 0) {
+            // Move toward center as cooking progresses (if sphere is shown)
+            if (progress > 0 && this.particleSettings.showSphere) {
                 const dx = centerX - targetX;
                 const dy = centerY - targetY;
-                targetX += dx * progress * 0.3;
-                targetY += dy * progress * 0.3;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const maxDistance = this.particleSettings.sphereRadius + 20;
+                
+                if (distance > maxDistance) {
+                    targetX += dx * progress * 0.1;
+                    targetY += dy * progress * 0.1;
+                }
             }
             
-            // Smooth movement
-            particle.x += (targetX - particle.x) * movementSpeed;
-            particle.y += (targetY - particle.y) * movementSpeed;
+            // Smooth movement with velocity
+            particle.velocityX += (targetX - particle.x) * 0.05;
+            particle.velocityY += (targetY - particle.y) * 0.05;
+            
+            // Apply velocity with damping
+            particle.x += particle.velocityX;
+            particle.y += particle.velocityY;
+            
+            // Damping
+            particle.velocityX *= 0.95;
+            particle.velocityY *= 0.95;
+            
+            // Keep particles within bounds
+            const maxRadius = Math.min(centerX, centerY) - 10;
+            const distance = Math.sqrt((particle.x - centerX) ** 2 + (particle.y - centerY) ** 2);
+            if (distance > maxRadius) {
+                const angle = Math.atan2(particle.y - centerY, particle.x - centerX);
+                particle.x = centerX + Math.cos(angle) * maxRadius;
+                particle.y = centerY + Math.sin(angle) * maxRadius;
+            }
         });
         
         // Draw all particles

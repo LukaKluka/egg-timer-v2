@@ -89,6 +89,42 @@
                     </div>
                 </div>
 
+                <!-- Development Controls -->
+                <div class="mt-6 p-3 bg-pink-50 rounded-lg border border-pink-200">
+                    <h4 class="text-xs font-medium text-pink-800 mb-2">🎨 Particle Dev Controls</h4>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <span class="text-pink-700">Particles:</span>
+                            <button id="particles-down" class="ml-1 bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">-</button>
+                            <span id="particle-count" class="mx-1 text-pink-800">120</span>
+                            <button id="particles-up" class="bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">+</button>
+                        </div>
+                        <div>
+                            <span class="text-pink-700">Speed:</span>
+                            <button id="speed-down" class="ml-1 bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">-</button>
+                            <span id="speed-value" class="mx-1 text-pink-800">0.02</span>
+                            <button id="speed-up" class="bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">+</button>
+                        </div>
+                        <div>
+                            <span class="text-pink-700">Wiggle:</span>
+                            <button id="wiggle-down" class="ml-1 bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">-</button>
+                            <span id="wiggle-value" class="mx-1 text-pink-800">8</span>
+                            <button id="wiggle-up" class="bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">+</button>
+                        </div>
+                        <div>
+                            <span class="text-pink-700">Random:</span>
+                            <button id="random-down" class="ml-1 bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">-</button>
+                            <span id="random-value" class="mx-1 text-pink-800">0.5</span>
+                            <button id="random-up" class="bg-pink-300 hover:bg-pink-400 text-white px-2 py-1 rounded">+</button>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex gap-1">
+                        <button id="reset-particles" class="bg-pink-400 hover:bg-pink-500 text-white px-2 py-1 rounded text-xs">Reset</button>
+                        <button id="toggle-sphere" class="bg-pink-400 hover:bg-pink-500 text-white px-2 py-1 rounded text-xs">Toggle Sphere</button>
+                        <button id="toggle-emitter" class="bg-pink-400 hover:bg-pink-500 text-white px-2 py-1 rounded text-xs">Toggle Emitter</button>
+                    </div>
+                </div>
+
                 <!-- Bottom Navigation -->
                 <div class="mt-8 pt-4 border-t border-gray-200">
                     <div class="flex justify-center items-center space-x-8 text-sm">
