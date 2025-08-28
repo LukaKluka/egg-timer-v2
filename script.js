@@ -93,7 +93,7 @@ class EggTimer {
         });
         
         document.getElementById('particles-up').addEventListener('click', () => {
-            this.particleSettings.numParticles = Math.min(500, this.particleSettings.numParticles + 10);
+            this.particleSettings.numParticles = Math.min(2000, this.particleSettings.numParticles + 10);
             this.updateDevDisplay();
             this.reinitParticleSystem();
         });
