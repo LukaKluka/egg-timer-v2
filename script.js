@@ -160,13 +160,17 @@ class EggTimer {
     resetParticleSettings() {
         this.particleSettings = {
             numParticles: 120,
-            baseSpeed: 0.02,
-            wiggleAmount: 8,
-            randomFactor: 0.5,
+            baseSpeed: 0,             // No movement
+            wiggleAmount: 0,          // No wiggle
+            randomFactor: 0,          // No randomness
             showSphere: true,
             showEmitter: false,
             sphereRadius: 30,
-            emitterRadius: 40
+            emitterRadius: 40,
+            sphereRotation: 0.02,     // Default rotation
+            particleSize: 2,
+            gridSpacing: 8,
+            expansionFactor: 0
         };
         this.updateDevDisplay();
         this.reinitParticleSystem();
