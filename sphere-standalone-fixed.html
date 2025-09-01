@@ -552,33 +552,29 @@
                 const centerX = this.canvas.width / 2;
                 const centerY = this.canvas.height / 2;
                 
-                // Calculate normalized screen coordinates (-1 to 1)
-                const normalizedX = (canvasX - centerX) / centerX;
-                const normalizedY = (centerY - canvasY) / centerY;
+                // Calculate distance from center of canvas
+                const distanceFromCenter = Math.sqrt(
+                    Math.pow(canvasX - centerX, 2) + 
+                    Math.pow(canvasY - centerY, 2)
+                );
                 
-                // Project onto sphere surface (always on front surface)
-                const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+                // Only allow interaction if click is within sphere bounds
+                const sphereScreenRadius = this.settings.sphereRadius * 0.8; // Slightly smaller for better UX
                 
-                // If click is outside sphere bounds, clamp to sphere edge
-                if (distance > 1) {
-                    const scale = 1 / distance;
-                    const clampedX = normalizedX * scale;
-                    const clampedY = normalizedY * scale;
-                    
-                    // Project onto sphere surface
-                    const z = 0; // Front surface
-                    const x = clampedX * this.settings.sphereRadius;
-                    const y = clampedY * this.settings.sphereRadius;
-                    
-                    return { hitPoint: { x, y, z } };
-                } else {
-                    // Click is inside sphere bounds, project onto surface
-                    const z = 0; // Front surface
-                    const x = normalizedX * this.settings.sphereRadius;
-                    const y = normalizedY * this.settings.sphereRadius;
-                    
-                    return { hitPoint: { x, y, z } };
+                if (distanceFromCenter > sphereScreenRadius) {
+                    return null; // Click is outside sphere
                 }
+                
+                // Calculate normalized screen coordinates (-1 to 1) relative to sphere
+                const normalizedX = (canvasX - centerX) / sphereScreenRadius;
+                const normalizedY = (centerY - canvasY) / sphereScreenRadius;
+                
+                // Project onto sphere surface (front surface)
+                const z = 0; // Front surface
+                const x = normalizedX * this.settings.sphereRadius;
+                const y = normalizedY * this.settings.sphereRadius;
+                
+                return { hitPoint: { x, y, z } };
 
             
             // Apply impulse to particles near the hit point
@@ -859,6 +855,26 @@
                 // Clear with background color
                 this.ctx.fillStyle = this.settings.backgroundColor;
                 this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Debug: Draw sphere boundary
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                this.ctx.save();
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY, this.settings.sphereRadius, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.restore();
+                
+                // Debug: Show particle count
+                this.ctx.save();
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                this.ctx.font = '16px Arial';
+                this.ctx.fillText(`Particles: ${this.particles.length}`, 10, 30);
+                this.ctx.fillText(`Screen X: ${this.particles[0]?.screenX || 'N/A'}`, 10, 50);
+                this.ctx.fillText(`Screen Y: ${this.particles[0]?.screenY || 'N/A'}`, 10, 70);
+                this.ctx.restore();
                 
                 this.particles.forEach(particle => {
                     const size = Math.max(1, particle.size);
