@@ -335,18 +335,18 @@ class EggYolkVisualizer {
     
     viscosityToParams(doneness) {
         // Map viscosity slider (0-1) to physics parameters
-        // 0 = liquid/runny, 1 = hard-boiled/firm
+        // 0 = liquid/runny (longer paths), 1 = hard-boiled/firm (shorter paths)
         
         if (doneness <= 0.5) {
             // Liquid to medium
             const t = doneness * 2; // 0 to 1
             return {
-                springK: 2.0 + (t * 1.5), // 2.0 to 3.5
-                damping: 1.2 + (t * 1.0), // 1.2 to 2.2
-                noiseStrength: 0.8 - (t * 0.35), // 0.8 to 0.45
-                flowSpeed: 1.0 - (t * 0.4), // 1.0 to 0.6
-                pushStrength: 70 - (t * 30), // 70 to 40
-                sigma: 0.45 + (t * 0.15) // 0.45 to 0.6
+                springK: 1.0 + (t * 2.5), // 1.0 to 3.5 (softer springs for liquid = longer paths)
+                damping: 0.5 + (t * 1.7), // 0.5 to 2.2 (less damping for liquid = longer paths)
+                noiseStrength: 1.8 - (t * 1.35), // 1.8 to 0.45 (more noise for liquid = longer paths)
+                flowSpeed: 2.5 - (t * 1.9), // 2.5 to 0.6 (faster flow for liquid = longer paths)
+                pushStrength: 100 - (t * 60), // 100 to 40 (stronger push for liquid = longer paths)
+                sigma: 0.3 + (t * 0.3) // 0.3 to 0.6 (wider spread for liquid = longer paths)
             };
         } else {
             // Medium to hard-boiled
@@ -456,7 +456,7 @@ class EggYolkVisualizer {
             }
             
             // Calculate weight (Gaussian on sphere)
-            const weight = Math.exp(-(angle / this.settings.sigma) ** 2);
+            const weight = Math.exp(-Math.pow(angle / this.settings.sigma, 2));
             
             // Calculate impulse direction with perspective
             const impulseDir = new THREE.Vector3()
@@ -529,9 +529,9 @@ class EggYolkVisualizer {
             
             // Keep particles within sphere bounds
             const distance = Math.sqrt(
-                this.positions[index] ** 2 +
-                this.positions[index + 1] ** 2 +
-                this.positions[index + 2] ** 2
+                Math.pow(this.positions[index], 2) +
+                Math.pow(this.positions[index + 1], 2) +
+                Math.pow(this.positions[index + 2], 2)
             );
             
             if (distance > this.settings.radius) {
