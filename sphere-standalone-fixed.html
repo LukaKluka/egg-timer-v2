@@ -571,8 +571,9 @@
                 // Apply path length control - affects how far particles can travel from base
                 const pathLengthMultiplier = this.settings.pathLength || 1.0;
                 
-                // Apply particle speed control - affects velocity scaling
+                // Apply particle speed control - affects the time scale of movement
                 const speedMultiplier = this.settings.particleSpeed || 1.0;
+                const adjustedDeltaTime = deltaTime * speedMultiplier;
                 
                 this.particles.forEach(particle => {
                     // Calculate distance from base position
@@ -609,7 +610,7 @@
                     const randomY = (Math.random() - 0.5) * randomScale;
                     const randomZ = (Math.random() - 0.5) * randomScale;
                     
-                    // Apply forces (speed only affects the final velocity, not the force magnitude)
+                    // Apply forces (speed does NOT affect force magnitude)
                     particle.vx += springX + randomX;
                     particle.vy += springY + randomY;
                     particle.vz += springZ + randomZ;
@@ -619,10 +620,10 @@
                     particle.vy *= damping;
                     particle.vz *= damping;
                     
-                    // Update position with speed multiplier (this is where speed truly controls movement)
-                    particle.x += particle.vx * speedMultiplier;
-                    particle.y += particle.vy * speedMultiplier;
-                    particle.z += particle.vz * speedMultiplier;
+                    // Update position with adjusted delta time (this is where speed truly controls movement)
+                    particle.x += particle.vx * adjustedDeltaTime;
+                    particle.y += particle.vy * adjustedDeltaTime;
+                    particle.z += particle.vz * adjustedDeltaTime;
                     
                     // CRITICAL: Always keep particles within sphere bounds first
                     const distanceFromCenter = Math.sqrt(particle.x * particle.x + particle.y * particle.y + particle.z * particle.z);
