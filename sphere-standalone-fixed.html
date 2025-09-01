@@ -543,8 +543,8 @@
                 });
             }
             
-            // Raycaster to detect sphere intersection with rotation support
-            raycastSphere(mouseX, mouseY) {
+            // Simple screen-to-sphere projection for touch interaction
+            projectToSphere(mouseX, mouseY) {
                 const rect = this.canvas.getBoundingClientRect();
                 const canvasX = mouseX - rect.left;
                 const canvasY = mouseY - rect.top;
@@ -552,125 +552,39 @@
                 const centerX = this.canvas.width / 2;
                 const centerY = this.canvas.height / 2;
                 
-                // Convert screen coordinates to world coordinates
-                // Use a more direct mapping for better accuracy
-                const worldX = (canvasX - centerX) * 0.5;
-                const worldY = (centerY - canvasY) * 0.5;
+                // Calculate normalized screen coordinates (-1 to 1)
+                const normalizedX = (canvasX - centerX) / centerX;
+                const normalizedY = (centerY - canvasY) / centerY;
                 
-                // Create ray from camera position to screen point
-                const rayOrigin = { x: worldX, y: worldY, z: 300 };
-                const rayDir = { x: 0, y: 0, z: -1 }; // Ray goes straight down Z axis
+                // Project onto sphere surface (always on front surface)
+                const distance = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
                 
-                // Apply inverse rotation to the ray to account for sphere rotation
-                const cosX = Math.cos(-this.interaction.rotationX);
-                const sinX = Math.sin(-this.interaction.rotationX);
-                const cosY = Math.cos(-this.interaction.rotationY);
-                const sinY = Math.sin(-this.interaction.rotationY);
-                
-                // Rotate ray origin and direction by inverse of sphere rotation
-                let rotatedOriginX = rayOrigin.x;
-                let rotatedOriginY = rayOrigin.y;
-                let rotatedOriginZ = rayOrigin.z;
-                
-                // Apply inverse Y rotation
-                const tempX = rotatedOriginX * cosY + rotatedOriginZ * sinY;
-                const tempZ = -rotatedOriginX * sinY + rotatedOriginZ * cosY;
-                rotatedOriginX = tempX;
-                rotatedOriginZ = tempZ;
-                
-                // Apply inverse X rotation
-                const tempY = rotatedOriginY * cosX - rotatedOriginZ * sinX;
-                rotatedOriginZ = rotatedOriginY * sinX + rotatedOriginZ * cosX;
-                rotatedOriginY = tempY;
-                
-                // Rotate ray direction
-                let rotatedDirX = rayDir.x;
-                let rotatedDirY = rayDir.y;
-                let rotatedDirZ = rayDir.z;
-                
-                // Apply inverse Y rotation to direction
-                const tempDirX = rotatedDirX * cosY + rotatedDirZ * sinY;
-                const tempDirZ = -rotatedDirX * sinY + rotatedDirZ * cosY;
-                rotatedDirX = tempDirX;
-                rotatedDirZ = tempDirZ;
-                
-                // Apply inverse X rotation to direction
-                const tempDirY = rotatedDirY * cosX - rotatedDirZ * sinX;
-                rotatedDirZ = rotatedDirY * sinX + rotatedDirZ * cosX;
-                rotatedDirY = tempDirY;
-                
-                // Ray-sphere intersection with rotated ray
-                const sphereCenter = { x: 0, y: 0, z: 0 };
-                const sphereRadius = this.settings.sphereRadius;
-                
-                const dx = rotatedDirX;
-                const dy = rotatedDirY;
-                const dz = rotatedDirZ;
-                const ox = rotatedOriginX - sphereCenter.x;
-                const oy = rotatedOriginY - sphereCenter.y;
-                const oz = rotatedOriginZ - sphereCenter.z;
-                
-                const a = dx * dx + dy * dy + dz * dz;
-                const b = 2 * (ox * dx + oy * dy + oz * dz);
-                const c = ox * ox + oy * oy + oz * oz - sphereRadius * sphereRadius;
-                
-                const discriminant = b * b - 4 * a * c;
-                
-                if (discriminant < 0) {
-                    return null; // No intersection
+                // If click is outside sphere bounds, clamp to sphere edge
+                if (distance > 1) {
+                    const scale = 1 / distance;
+                    const clampedX = normalizedX * scale;
+                    const clampedY = normalizedY * scale;
+                    
+                    // Project onto sphere surface
+                    const z = 0; // Front surface
+                    const x = clampedX * this.settings.sphereRadius;
+                    const y = clampedY * this.settings.sphereRadius;
+                    
+                    return { hitPoint: { x, y, z } };
+                } else {
+                    // Click is inside sphere bounds, project onto surface
+                    const z = 0; // Front surface
+                    const x = normalizedX * this.settings.sphereRadius;
+                    const y = normalizedY * this.settings.sphereRadius;
+                    
+                    return { hitPoint: { x, y, z } };
                 }
-                
-                const t = (-b - Math.sqrt(discriminant)) / (2 * a);
-                
-                if (t < 0) {
-                    return null; // Intersection behind camera
-                }
-                
-                // Calculate hit point in rotated space
-                const hitPointRotated = {
-                    x: rotatedOriginX + rotatedDirX * t,
-                    y: rotatedOriginY + rotatedDirY * t,
-                    z: rotatedOriginZ + rotatedDirZ * t
-                };
-                
-                // Apply forward rotation to get hit point in world space
-                let hitPoint = { ...hitPointRotated };
-                
-                // Apply Y rotation
-                const tempHitX = hitPoint.x * cosY - hitPoint.z * sinY;
-                const tempHitZ = hitPoint.x * sinY + hitPoint.z * cosY;
-                hitPoint.x = tempHitX;
-                hitPoint.z = tempHitZ;
-                
-                // Apply X rotation
-                const tempHitY = hitPoint.y * cosX - hitPoint.z * sinX;
-                hitPoint.z = hitPoint.y * sinX + hitPoint.z * cosX;
-                hitPoint.y = tempHitY;
-                
-                // Check if hit point is in front third of sphere (closer to camera)
-                console.log('Hit point Z:', hitPoint.z, 'Front third threshold:', this.settings.sphereRadius * 0.33);
-                // Note: In our coordinate system, positive Z is closer to camera (front)
-                if (hitPoint.z < this.settings.sphereRadius * 0.33) {
-                    console.log('Hit point too far back, rejecting');
-                    return null; // Hit point is too far back, only allow front third
-                }
-                
-                console.log('Hit point accepted, applying impulse');
-                
-                // Calculate surface normal (unit vector from center to hit point)
-                const normal = {
-                    x: hitPoint.x / sphereRadius,
-                    y: hitPoint.y / sphereRadius,
-                    z: hitPoint.z / sphereRadius
-                };
-                
-                return { hitPoint, normal };
-            }
+
             
             // Apply impulse to particles near the hit point
             applyImpulse(mouseX, mouseY) {
                 console.log('Applying impulse at:', mouseX, mouseY);
-                const intersection = this.raycastSphere(mouseX, mouseY);
+                const intersection = this.projectToSphere(mouseX, mouseY);
                 
                 if (!intersection) {
                     console.log('No intersection with sphere');
@@ -678,7 +592,7 @@
                 }
                 
                 console.log('Hit point:', intersection.hitPoint);
-                const { hitPoint, normal: hitNormal } = intersection;
+                const { hitPoint } = intersection;
                 
                 this.particles.forEach(particle => {
                     // Use particle's current position to calculate distance from hit point
@@ -699,10 +613,10 @@
                     const gaussianWeight = Math.exp(-(distance / (this.settings.sigma * 50)) * (distance / (this.settings.sigma * 50)));
                     const weight = distanceWeight * gaussianWeight;
                     
-                    // Calculate direction from hit point to particle (push AWAY from hit point)
-                    const dirX = particle.x - hitPoint.x;
-                    const dirY = particle.y - hitPoint.y;
-                    const dirZ = particle.z - hitPoint.z;
+                    // Calculate direction from particle to hit point (push TOWARD hit point - creates dent)
+                    const dirX = hitPoint.x - particle.x;
+                    const dirY = hitPoint.y - particle.y;
+                    const dirZ = hitPoint.z - particle.z;
                     
                     const dirLength = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
                     
