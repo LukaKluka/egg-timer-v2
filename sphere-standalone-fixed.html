@@ -149,13 +149,13 @@
         </div>
         
         <div class="control-group">
-            <label>Noise Strength: <span id="noise-value">10</span></label>
-            <input type="range" id="noise-strength" min="0" max="30" value="10" step="1">
+            <label>Noise Strength: <span id="noise-value">2</span></label>
+            <input type="range" id="noise-strength" min="0" max="30" value="2" step="1">
         </div>
         
         <div class="control-group">
-            <label>Flow Speed: <span id="flow-value">0.3</span></label>
-            <input type="range" id="flow-speed" min="0" max="1" value="0.3" step="0.1">
+            <label>Flow Speed: <span id="flow-value">0.05</span></label>
+            <input type="range" id="flow-speed" min="0" max="1" value="0.05" step="0.01">
         </div>
     </div>
     
@@ -171,8 +171,8 @@
         </div>
         
         <div class="control-group">
-            <label>Spring K: <span id="spring-k-value">0.1</span></label>
-            <input type="range" id="spring-k" min="0.01" max="0.5" value="0.1" step="0.01">
+            <label>Spring K: <span id="spring-k-value">0.3</span></label>
+            <input type="range" id="spring-k" min="0.01" max="0.5" value="0.3" step="0.01">
         </div>
         
         <div class="control-group">
@@ -183,6 +183,16 @@
         <div class="control-group">
             <label>Max Influence Angle: <span id="max-angle-value">3.14</span></label>
             <input type="range" id="max-angle" min="0.5" max="3.14" value="3.14" step="0.1">
+        </div>
+        
+        <div class="control-group checkbox-group">
+            <input type="checkbox" id="enable-push" checked>
+            <label for="enable-push">Enable Push Physics</label>
+        </div>
+        
+        <div class="control-group checkbox-group">
+            <input type="checkbox" id="enable-noise">
+            <label for="enable-noise">Enable Noise Motion</label>
         </div>
     </div>
     
@@ -239,8 +249,8 @@
                     sphereRadius: 150,
                     particleSize: 1,
                     rotationSpeed: 0.2,
-                    noiseStrength: 10,
-                    flowSpeed: 0.3,
+                    noiseStrength: 2,
+                    flowSpeed: 0.05,
                     distribution: 'volume',
                     particleColor: '#ffffff',
                     backgroundColor: '#000000',
@@ -248,10 +258,11 @@
                     // Physics-based impulse settings
                     pushStrength: 50,
                     sigma: 0.5, // Gaussian falloff spread (radians)
-                    springK: 0.1, // Spring constant
+                    springK: 0.3, // Spring constant
                     damping: 0.95, // Velocity damping
                     maxInfluenceAngle: Math.PI, // Maximum influence angle
-                    enablePush: true
+                    enablePush: true,
+                    enableNoise: false
                 };
                 
                 // Interaction state
@@ -441,6 +452,10 @@
                 
                 document.getElementById('enable-push').addEventListener('change', (e) => {
                     this.settings.enablePush = e.target.checked;
+                });
+                
+                document.getElementById('enable-noise').addEventListener('change', (e) => {
+                    this.settings.enableNoise = e.target.checked;
                 });
                 
                 document.getElementById('distribution').addEventListener('change', (e) => {
@@ -774,28 +789,36 @@
                     const springForceY = -this.settings.springK * (particle.y - particle.baseY);
                     const springForceZ = -this.settings.springK * (particle.z - particle.baseZ);
                     
-                    // Calculate noise force
+                    // Calculate subtle noise force (much reduced for stability)
                     const noiseX = this.noise(
-                        particle.baseX * 0.01 + this.time * this.settings.flowSpeed,
-                        particle.baseY * 0.01 + this.time * this.settings.flowSpeed * 0.7,
-                        particle.baseZ * 0.01 + this.time * this.settings.flowSpeed * 1.3
+                        particle.baseX * 0.005 + this.time * this.settings.flowSpeed * 0.1,
+                        particle.baseY * 0.005 + this.time * this.settings.flowSpeed * 0.07,
+                        particle.baseZ * 0.005 + this.time * this.settings.flowSpeed * 0.13
                     );
                     
                     const noiseY = this.noise(
-                        particle.baseX * 0.01 + this.time * this.settings.flowSpeed * 1.1,
-                        particle.baseY * 0.01 + this.time * this.settings.flowSpeed,
-                        particle.baseZ * 0.01 + this.time * this.settings.flowSpeed * 0.9
+                        particle.baseX * 0.005 + this.time * this.settings.flowSpeed * 0.11,
+                        particle.baseY * 0.005 + this.time * this.settings.flowSpeed * 0.1,
+                        particle.baseZ * 0.005 + this.time * this.settings.flowSpeed * 0.09
                     );
                     
                     const noiseZ = this.noise(
-                        particle.baseX * 0.01 + this.time * this.settings.flowSpeed * 0.8,
-                        particle.baseY * 0.01 + this.time * this.settings.flowSpeed * 1.2,
-                        particle.baseZ * 0.01 + this.time * this.settings.flowSpeed
+                        particle.baseX * 0.005 + this.time * this.settings.flowSpeed * 0.08,
+                        particle.baseY * 0.005 + this.time * this.settings.flowSpeed * 0.12,
+                        particle.baseZ * 0.005 + this.time * this.settings.flowSpeed * 0.1
                     );
                     
-                    const noiseForceX = noiseX * this.settings.noiseStrength;
-                    const noiseForceY = noiseY * this.settings.noiseStrength;
-                    const noiseForceZ = noiseZ * this.settings.noiseStrength;
+                    // Much smaller noise force for stability (only if enabled and particles are near base position)
+                    const distanceFromBase = Math.sqrt(
+                        Math.pow(particle.x - particle.baseX, 2) + 
+                        Math.pow(particle.y - particle.baseY, 2) + 
+                        Math.pow(particle.z - particle.baseZ, 2)
+                    );
+                    
+                    // Only apply noise if particles are very close to their base position (stable state)
+                    const noiseForceX = (this.settings.enableNoise && distanceFromBase < 5) ? noiseX * this.settings.noiseStrength * 0.01 : 0;
+                    const noiseForceY = (this.settings.enableNoise && distanceFromBase < 5) ? noiseY * this.settings.noiseStrength * 0.01 : 0;
+                    const noiseForceZ = (this.settings.enableNoise && distanceFromBase < 5) ? noiseZ * this.settings.noiseStrength * 0.01 : 0;
                     
                     // Total acceleration
                     const accelX = springForceX + noiseForceX;
@@ -926,18 +949,19 @@
                     sphereRadius: 150,
                     particleSize: 1,
                     rotationSpeed: 0.2,
-                    noiseStrength: 10,
-                    flowSpeed: 0.3,
+                    noiseStrength: 2,
+                    flowSpeed: 0.05,
                     distribution: 'volume',
                     particleColor: '#ffffff',
                     backgroundColor: '#000000',
                     seed: Math.random() * 1000,
                     pushStrength: 50,
                     sigma: 0.5,
-                    springK: 0.1,
+                    springK: 0.3,
                     damping: 0.95,
                     maxInfluenceAngle: Math.PI,
-                    enablePush: true
+                    enablePush: true,
+                    enableNoise: false
                 };
                 
                 // Update all controls
@@ -956,6 +980,7 @@
                 document.getElementById('particle-color').value = this.settings.particleColor;
                 document.getElementById('bg-color').value = this.settings.backgroundColor;
                 document.getElementById('enable-push').checked = this.settings.enablePush;
+                document.getElementById('enable-noise').checked = this.settings.enableNoise;
                 
                 document.getElementById('color-value').textContent = this.settings.particleColor;
                 document.getElementById('bg-value').textContent = this.settings.backgroundColor;
