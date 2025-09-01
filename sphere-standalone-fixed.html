@@ -619,10 +619,10 @@
                     particle.y += particle.vy * speedMultiplier;
                     particle.z += particle.vz * speedMultiplier;
                     
-                    // Keep particles within overall sphere bounds
-                    const distance = Math.sqrt(particle.x * particle.x + particle.y * particle.y + particle.z * particle.z);
-                    if (distance > this.settings.sphereRadius) {
-                        const scale = this.settings.sphereRadius / distance;
+                    // CRITICAL: Always keep particles within sphere bounds first
+                    const distanceFromCenter = Math.sqrt(particle.x * particle.x + particle.y * particle.y + particle.z * particle.z);
+                    if (distanceFromCenter > this.settings.sphereRadius) {
+                        const scale = this.settings.sphereRadius / distanceFromCenter;
                         particle.x *= scale;
                         particle.y *= scale;
                         particle.z *= scale;
@@ -631,6 +631,34 @@
                         particle.vx *= -0.5;
                         particle.vy *= -0.5;
                         particle.vz *= -0.5;
+                    }
+                    
+                    // SECONDARY: Check path length constraint after sphere boundary
+                    const finalDistanceFromBase = Math.sqrt(
+                        Math.pow(particle.x - particle.baseX, 2) + 
+                        Math.pow(particle.y - particle.baseY, 2) + 
+                        Math.pow(particle.z - particle.baseZ, 2)
+                    );
+                    
+                    if (finalDistanceFromBase > maxDistanceFromBase) {
+                        // Pull particle back towards base position, but ensure it stays within sphere
+                        const scale = maxDistanceFromBase / finalDistanceFromBase;
+                        const newX = particle.baseX + (particle.x - particle.baseX) * scale;
+                        const newY = particle.baseY + (particle.y - particle.baseY) * scale;
+                        const newZ = particle.baseZ + (particle.z - particle.baseZ) * scale;
+                        
+                        // Check if new position would be outside sphere
+                        const newDistanceFromCenter = Math.sqrt(newX * newX + newY * newY + newZ * newZ);
+                        if (newDistanceFromCenter <= this.settings.sphereRadius) {
+                            particle.x = newX;
+                            particle.y = newY;
+                            particle.z = newZ;
+                        }
+                        
+                        // Reduce velocity when hitting path length limit
+                        particle.vx *= 0.8;
+                        particle.vy *= 0.8;
+                        particle.vz *= 0.8;
                     }
                 });
             }
