@@ -603,23 +603,23 @@
                     const springY = (particle.baseY - particle.y) * springK;
                     const springZ = (particle.baseZ - particle.z) * springK;
                     
-                    // Random movement (affected by viscosity and path length)
+                    // Random movement (affected by viscosity and path length, but NOT by speed)
                     const randomScale = this.settings.randomMovement * (1 - this.settings.viscosity * 0.3) * pathLengthMultiplier;
                     const randomX = (Math.random() - 0.5) * randomScale;
                     const randomY = (Math.random() - 0.5) * randomScale;
                     const randomZ = (Math.random() - 0.5) * randomScale;
                     
-                    // Apply forces with speed multiplier
-                    particle.vx += (springX + randomX) * speedMultiplier;
-                    particle.vy += (springY + randomY) * speedMultiplier;
-                    particle.vz += (springZ + randomZ) * speedMultiplier;
+                    // Apply forces (speed only affects the final velocity, not the force magnitude)
+                    particle.vx += springX + randomX;
+                    particle.vy += springY + randomY;
+                    particle.vz += springZ + randomZ;
                     
                     // Apply damping (viscosity)
                     particle.vx *= damping;
                     particle.vy *= damping;
                     particle.vz *= damping;
                     
-                    // Update position with speed multiplier
+                    // Update position with speed multiplier (this is where speed truly controls movement)
                     particle.x += particle.vx * speedMultiplier;
                     particle.y += particle.vy * speedMultiplier;
                     particle.z += particle.vz * speedMultiplier;
