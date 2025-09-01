@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics-Based Particle Sphere</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #canvas-container {
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        canvas {
+            border: 1px solid #333;
+            border-radius: 10px;
+            cursor: grab;
+        }
+        
+        canvas:active {
+            cursor: grabbing;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        input[type="number"] {
+            width: 60px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        
+        select {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        
+        button {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #555;
+        }
+        
+        .info {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+        
+        .color-picker {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h2>Physics-Based Interactive Particle Sphere</h2>
+        <p>Click to apply impulse • Drag to rotate • Adjust physics settings below</p>
+    </div>
+    
+    <div id="canvas-container">
+        <canvas id="particle-canvas" width="800" height="600"></canvas>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Particle Count: <span id="count-value">5000</span></label>
+            <input type="range" id="particle-count" min="1000" max="15000" value="5000" step="500">
+        </div>
+        
+        <div class="control-group">
+            <label>Sphere Radius: <span id="radius-value">150</span></label>
+            <input type="range" id="sphere-radius" min="50" max="250" value="150" step="10">
+        </div>
+        
+        <div class="control-group">
+            <label>Particle Size: <span id="size-value">1</span></label>
+            <input type="range" id="particle-size" min="1" max="4" value="1" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Rotation Speed: <span id="speed-value">0.2</span></label>
+            <input type="range" id="rotation-speed" min="0" max="1" value="0.2" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Noise Strength: <span id="noise-value">10</span></label>
+            <input type="range" id="noise-strength" min="0" max="30" value="10" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Flow Speed: <span id="flow-value">0.3</span></label>
+            <input type="range" id="flow-speed" min="0" max="1" value="0.3" step="0.1">
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Push Strength: <span id="push-strength-value">50</span></label>
+            <input type="range" id="push-strength" min="10" max="200" value="50" step="5">
+        </div>
+        
+        <div class="control-group">
+            <label>Sigma (Spread): <span id="sigma-value">0.5</span></label>
+            <input type="range" id="sigma" min="0.1" max="2.0" value="0.5" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Spring K: <span id="spring-k-value">0.1</span></label>
+            <input type="range" id="spring-k" min="0.01" max="0.5" value="0.1" step="0.01">
+        </div>
+        
+        <div class="control-group">
+            <label>Damping: <span id="damping-value">0.95</span></label>
+            <input type="range" id="damping" min="0.8" max="0.99" value="0.95" step="0.01">
+        </div>
+        
+        <div class="control-group">
+            <label>Max Influence Angle: <span id="max-angle-value">3.14</span></label>
+            <input type="range" id="max-angle" min="0.5" max="3.14" value="3.14" step="0.1">
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Distribution:</label>
+            <select id="distribution">
+                <option value="volume">Volume</option>
+                <option value="surface">Surface</option>
+                <option value="mixed">Mixed</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>Particle Color:</label>
+            <div class="color-picker">
+                <input type="color" id="particle-color" value="#ffffff">
+                <span id="color-value">#ffffff</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <label>Background Color:</label>
+            <div class="color-picker">
+                <input type="color" id="bg-color" value="#000000">
+                <span id="bg-value">#000000</span>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <div class="checkbox-group">
+                <input type="checkbox" id="enable-push" checked>
+                <label for="enable-push">Enable Push</label>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="reset-rotation">Reset Rotation</button>
+        <button id="reset-settings">Reset All Settings</button>
+        <button id="random-seed">Random Seed</button>
+        <button id="reset-physics">Reset Physics</button>
+    </div>
+
+    <script>
+        class PhysicsParticleSphere {
+            constructor() {
+                this.canvas = document.getElementById('particle-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Physics settings
+                this.settings = {
+                    numParticles: 5000,
+                    sphereRadius: 150,
+                    particleSize: 1,
+                    rotationSpeed: 0.2,
+                    noiseStrength: 10,
+                    flowSpeed: 0.3,
+                    distribution: 'volume',
+                    particleColor: '#ffffff',
+                    backgroundColor: '#000000',
+                    seed: Math.random() * 1000,
+                    // Physics-based impulse settings
+                    pushStrength: 50,
+                    sigma: 0.5, // Gaussian falloff spread (radians)
+                    springK: 0.1, // Spring constant
+                    damping: 0.95, // Velocity damping
+                    maxInfluenceAngle: Math.PI, // Maximum influence angle
+                    enablePush: true
+                };
+                
+                // Interaction state
+                this.interaction = {
+                    isDragging: false,
+                    lastX: 0,
+                    lastY: 0,
+                    rotationX: 0,
+                    rotationY: 0,
+                    autoRotation: true,
+                    mouseX: 0,
+                    mouseY: 0,
+                    isHovering: false
+                };
+                
+                // Physics state
+                this.physics = {
+                    deltaTime: 1/60, // Fixed timestep
+                    gravity: 0,
+                    drag: 0.98
+                };
+                
+                // Particles array with physics properties
+                this.particles = [];
+                
+                // Animation
+                this.animationId = null;
+                this.lastTime = 0;
+                this.time = 0;
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.initParticleSystem();
+                this.startAnimation();
+                this.updateDisplay();
+            }
+            
+            setupEventListeners() {
+                // Mouse events
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.interaction.isDragging = true;
+                    this.interaction.lastX = e.clientX;
+                    this.interaction.lastY = e.clientY;
+                    
+                    // Apply impulse on click
+                    if (this.settings.enablePush) {
+                        this.applyImpulse(e.clientX, e.clientY);
+                    }
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    this.interaction.mouseX = e.clientX - rect.left;
+                    this.interaction.mouseY = e.clientY - rect.top;
+                    
+                    if (this.interaction.isDragging) {
+                        const deltaX = e.clientX - this.interaction.lastX;
+                        const deltaY = e.clientY - this.interaction.lastY;
+                        
+                        // Only rotate if there's significant movement
+                        if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                            this.interaction.rotationY += deltaX * 0.01;
+                            this.interaction.rotationX += deltaY * 0.01;
+                            this.interaction.autoRotation = false; // Disable auto-rotation only when dragging
+                        }
+                        
+                        this.interaction.lastX = e.clientX;
+                        this.interaction.lastY = e.clientY;
+                    }
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.interaction.isDragging = false;
+                    // Re-enable auto-rotation after a short delay if no manual rotation occurred
+                    setTimeout(() => {
+                        if (!this.interaction.isDragging) {
+                            this.interaction.autoRotation = true;
+                        }
+                    }, 100);
+                });
+                
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.interaction.isDragging = false;
+                    this.interaction.isHovering = false;
+                });
+                
+                // Touch events
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    this.interaction.isDragging = true;
+                    this.interaction.lastX = touch.clientX;
+                    this.interaction.lastY = touch.clientY;
+                    
+                    if (this.settings.enablePush) {
+                        this.applyImpulse(touch.clientX, touch.clientY);
+                    }
+                });
+                
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (this.interaction.isDragging) {
+                        const touch = e.touches[0];
+                        const deltaX = touch.clientX - this.interaction.lastX;
+                        const deltaY = touch.clientY - this.interaction.lastY;
+                        
+                        this.interaction.rotationY += deltaX * 0.01;
+                        this.interaction.rotationX += deltaY * 0.01;
+                        this.interaction.autoRotation = false; // Disable auto-rotation only when dragging
+                        
+                        this.interaction.lastX = touch.clientX;
+                        this.interaction.lastY = touch.clientY;
+                    }
+                });
+                
+                this.canvas.addEventListener('touchend', () => {
+                    this.interaction.isDragging = false;
+                    // Re-enable auto-rotation after a short delay if no manual rotation occurred
+                    setTimeout(() => {
+                        if (!this.interaction.isDragging) {
+                            this.interaction.autoRotation = true;
+                        }
+                    }, 100);
+                });
+                
+                // Control events
+                document.getElementById('particle-count').addEventListener('input', (e) => {
+                    this.settings.numParticles = parseInt(e.target.value);
+                    this.initParticleSystem();
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('sphere-radius').addEventListener('input', (e) => {
+                    this.settings.sphereRadius = parseInt(e.target.value);
+                    this.initParticleSystem();
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('particle-size').addEventListener('input', (e) => {
+                    this.settings.particleSize = parseInt(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('rotation-speed').addEventListener('input', (e) => {
+                    this.settings.rotationSpeed = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('noise-strength').addEventListener('input', (e) => {
+                    this.settings.noiseStrength = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('flow-speed').addEventListener('input', (e) => {
+                    this.settings.flowSpeed = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                // Physics controls
+                document.getElementById('push-strength').addEventListener('input', (e) => {
+                    this.settings.pushStrength = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('sigma').addEventListener('input', (e) => {
+                    this.settings.sigma = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('spring-k').addEventListener('input', (e) => {
+                    this.settings.springK = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('damping').addEventListener('input', (e) => {
+                    this.settings.damping = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('max-angle').addEventListener('input', (e) => {
+                    this.settings.maxInfluenceAngle = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('enable-push').addEventListener('change', (e) => {
+                    this.settings.enablePush = e.target.checked;
+                });
+                
+                document.getElementById('distribution').addEventListener('change', (e) => {
+                    this.settings.distribution = e.target.value;
+                    this.initParticleSystem();
+                });
+                
+                document.getElementById('particle-color').addEventListener('input', (e) => {
+                    this.settings.particleColor = e.target.value;
+                    document.getElementById('color-value').textContent = e.target.value;
+                });
+                
+                document.getElementById('bg-color').addEventListener('input', (e) => {
+                    this.settings.backgroundColor = e.target.value;
+                    document.getElementById('bg-value').textContent = e.target.value;
+                });
+                
+                document.getElementById('reset-rotation').addEventListener('click', () => {
+                    this.interaction.rotationX = 0;
+                    this.interaction.rotationY = 0;
+                    this.interaction.autoRotation = true;
+                });
+                
+                document.getElementById('reset-settings').addEventListener('click', () => {
+                    this.resetSettings();
+                });
+                
+                document.getElementById('random-seed').addEventListener('click', () => {
+                    this.settings.seed = Math.random() * 1000;
+                    this.initParticleSystem();
+                });
+                
+                document.getElementById('reset-physics').addEventListener('click', () => {
+                    this.resetPhysics();
+                });
+                
+                // Handle resize
+                window.addEventListener('resize', () => {
+                    this.handleResize();
+                });
+            }
+            
+            // Raycaster to detect sphere intersection with rotation support
+            raycastSphere(mouseX, mouseY) {
+                const rect = this.canvas.getBoundingClientRect();
+                const canvasX = mouseX - rect.left;
+                const canvasY = mouseY - rect.top;
+                
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                
+                // Convert screen coordinates to world coordinates
+                // Assuming the sphere is centered at origin and camera is at z = 500
+                const worldX = (canvasX - centerX) * (this.settings.sphereRadius / centerX);
+                const worldY = (centerY - canvasY) * (this.settings.sphereRadius / centerY);
+                
+                // Create ray from camera position to screen point
+                const rayOrigin = { x: worldX, y: worldY, z: 500 };
+                const rayDir = { x: 0, y: 0, z: -1 }; // Ray goes straight down Z axis
+                
+                // Apply inverse rotation to the ray to account for sphere rotation
+                const cosX = Math.cos(-this.interaction.rotationX);
+                const sinX = Math.sin(-this.interaction.rotationX);
+                const cosY = Math.cos(-this.interaction.rotationY);
+                const sinY = Math.sin(-this.interaction.rotationY);
+                
+                // Rotate ray origin and direction by inverse of sphere rotation
+                let rotatedOriginX = rayOrigin.x;
+                let rotatedOriginY = rayOrigin.y;
+                let rotatedOriginZ = rayOrigin.z;
+                
+                // Apply inverse Y rotation
+                const tempX = rotatedOriginX * cosY + rotatedOriginZ * sinY;
+                const tempZ = -rotatedOriginX * sinY + rotatedOriginZ * cosY;
+                rotatedOriginX = tempX;
+                rotatedOriginZ = tempZ;
+                
+                // Apply inverse X rotation
+                const tempY = rotatedOriginY * cosX - rotatedOriginZ * sinX;
+                rotatedOriginZ = rotatedOriginY * sinX + rotatedOriginZ * cosX;
+                rotatedOriginY = tempY;
+                
+                // Rotate ray direction
+                let rotatedDirX = rayDir.x;
+                let rotatedDirY = rayDir.y;
+                let rotatedDirZ = rayDir.z;
+                
+                // Apply inverse Y rotation to direction
+                const tempDirX = rotatedDirX * cosY + rotatedDirZ * sinY;
+                const tempDirZ = -rotatedDirX * sinY + rotatedDirZ * cosY;
+                rotatedDirX = tempDirX;
+                rotatedDirZ = tempDirZ;
+                
+                // Apply inverse X rotation to direction
+                const tempDirY = rotatedDirY * cosX - rotatedDirZ * sinX;
+                rotatedDirZ = rotatedDirY * sinX + rotatedDirZ * cosX;
+                rotatedDirY = tempDirY;
+                
+                // Ray-sphere intersection with rotated ray
+                const sphereCenter = { x: 0, y: 0, z: 0 };
+                const sphereRadius = this.settings.sphereRadius;
+                
+                const dx = rotatedDirX;
+                const dy = rotatedDirY;
+                const dz = rotatedDirZ;
+                const ox = rotatedOriginX - sphereCenter.x;
+                const oy = rotatedOriginY - sphereCenter.y;
+                const oz = rotatedOriginZ - sphereCenter.z;
+                
+                const a = dx * dx + dy * dy + dz * dz;
+                const b = 2 * (ox * dx + oy * dy + oz * dz);
+                const c = ox * ox + oy * oy + oz * oz - sphereRadius * sphereRadius;
+                
+                const discriminant = b * b - 4 * a * c;
+                
+                if (discriminant < 0) {
+                    return null; // No intersection
+                }
+                
+                const t = (-b - Math.sqrt(discriminant)) / (2 * a);
+                
+                if (t < 0) {
+                    return null; // Intersection behind camera
+                }
+                
+                // Calculate hit point in rotated space
+                const hitPointRotated = {
+                    x: rotatedOriginX + rotatedDirX * t,
+                    y: rotatedOriginY + rotatedDirY * t,
+                    z: rotatedOriginZ + rotatedDirZ * t
+                };
+                
+                // Apply forward rotation to get hit point in world space
+                let hitPoint = { ...hitPointRotated };
+                
+                // Apply Y rotation
+                const tempHitX = hitPoint.x * cosY - hitPoint.z * sinY;
+                const tempHitZ = hitPoint.x * sinY + hitPoint.z * cosY;
+                hitPoint.x = tempHitX;
+                hitPoint.z = tempHitZ;
+                
+                // Apply X rotation
+                const tempHitY = hitPoint.y * cosX - hitPoint.z * sinX;
+                hitPoint.z = hitPoint.y * sinX + hitPoint.z * cosX;
+                hitPoint.y = tempHitY;
+                
+                // Calculate surface normal (unit vector from center to hit point)
+                const normal = {
+                    x: hitPoint.x / sphereRadius,
+                    y: hitPoint.y / sphereRadius,
+                    z: hitPoint.z / sphereRadius
+                };
+                
+                return { hitPoint, normal };
+            }
+            
+            // Apply impulse to particles near the hit point
+            applyImpulse(mouseX, mouseY) {
+                const intersection = this.raycastSphere(mouseX, mouseY);
+                
+                if (!intersection) {
+                    return; // No intersection with sphere
+                }
+                
+                const { hitPoint, normal: hitNormal } = intersection;
+                
+                this.particles.forEach(particle => {
+                    // Use particle's current position to calculate distance from hit point
+                    const distance = Math.sqrt(
+                        Math.pow(particle.x - hitPoint.x, 2) + 
+                        Math.pow(particle.y - hitPoint.y, 2) + 
+                        Math.pow(particle.z - hitPoint.z, 2)
+                    );
+                    
+                    // Check if particle is within influence radius
+                    const influenceRadius = this.settings.sphereRadius * 0.5; // Adjust this multiplier as needed
+                    if (distance > influenceRadius) {
+                        return;
+                    }
+                    
+                    // Calculate weight based on distance (closer particles get stronger impulse)
+                    const distanceWeight = Math.max(0, 1 - (distance / influenceRadius));
+                    const gaussianWeight = Math.exp(-(distance / (this.settings.sigma * 50)) * (distance / (this.settings.sigma * 50)));
+                    const weight = distanceWeight * gaussianWeight;
+                    
+                    // Calculate direction from hit point to particle (push AWAY from hit point)
+                    const dirX = particle.x - hitPoint.x;
+                    const dirY = particle.y - hitPoint.y;
+                    const dirZ = particle.z - hitPoint.z;
+                    
+                    const dirLength = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+                    
+                    if (dirLength > 0) {
+                        // Normalize direction and apply impulse
+                        const normalizedDirX = dirX / dirLength;
+                        const normalizedDirY = dirY / dirLength;
+                        const normalizedDirZ = dirZ / dirLength;
+                        
+                        const impulse = this.settings.pushStrength * weight;
+                        
+                        particle.velocityX += normalizedDirX * impulse;
+                        particle.velocityY += normalizedDirY * impulse;
+                        particle.velocityZ += normalizedDirZ * impulse;
+                    }
+                });
+            }
+            
+            // Simple noise function
+            noise(x, y, z) {
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+                const Z = Math.floor(z) & 255;
+                
+                x -= Math.floor(x);
+                y -= Math.floor(y);
+                z -= Math.floor(z);
+                
+                const u = this.fade(x);
+                const v = this.fade(y);
+                const w = this.fade(z);
+                
+                const A = this.p[X] + Y;
+                const AA = this.p[A] + Z;
+                const AB = this.p[A + 1] + Z;
+                const B = this.p[X + 1] + Y;
+                const BA = this.p[B] + Z;
+                const BB = this.p[B + 1] + Z;
+                
+                return this.lerp(w, this.lerp(v, this.lerp(u, this.grad(this.p[AA], x, y, z),
+                    this.grad(this.p[BA], x - 1, y, z)),
+                    this.lerp(u, this.grad(this.p[AB], x, y - 1, z),
+                        this.grad(this.p[BB], x - 1, y - 1, z))),
+                    this.lerp(v, this.lerp(u, this.grad(this.p[AA + 1], x, y, z - 1),
+                        this.grad(this.p[BA + 1], x - 1, y, z - 1)),
+                        this.lerp(u, this.grad(this.p[AB + 1], x, y - 1, z - 1),
+                            this.grad(this.p[BB + 1], x - 1, y - 1, z - 1))));
+            }
+            
+            fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+            
+            lerp(t, a, b) { return a + t * (b - a); }
+            
+            grad(hash, x, y, z) {
+                const h = hash & 15;
+                const u = h < 8 ? x : y;
+                const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+                return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+            }
+            
+            initParticleSystem() {
+                this.particles = [];
+                
+                // Initialize permutation table for noise
+                this.p = new Array(512);
+                for (let i = 0; i < 256; i++) {
+                    this.p[i] = Math.floor(Math.random() * 256);
+                }
+                for (let i = 256; i < 512; i++) {
+                    this.p[i] = this.p[i - 256];
+                }
+                
+                for (let i = 0; i < this.settings.numParticles; i++) {
+                    let x, y, z;
+                    
+                    if (this.settings.distribution === 'surface') {
+                        // Surface distribution
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const theta = 2 * Math.PI * Math.random();
+                        
+                        x = this.settings.sphereRadius * Math.sin(phi) * Math.cos(theta);
+                        y = this.settings.sphereRadius * Math.sin(phi) * Math.sin(theta);
+                        z = this.settings.sphereRadius * Math.cos(phi);
+                    } else if (this.settings.distribution === 'mixed') {
+                        // Mixed distribution (70% volume, 30% surface)
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const theta = 2 * Math.PI * Math.random();
+                        
+                        if (Math.random() < 0.7) {
+                            // Volume distribution
+                            const r = this.settings.sphereRadius * Math.pow(Math.random(), 1/3);
+                            x = r * Math.sin(phi) * Math.cos(theta);
+                            y = r * Math.sin(phi) * Math.sin(theta);
+                            z = r * Math.cos(phi);
+                        } else {
+                            // Surface distribution
+                            x = this.settings.sphereRadius * Math.sin(phi) * Math.cos(theta);
+                            y = this.settings.sphereRadius * Math.sin(phi) * Math.sin(theta);
+                            z = this.settings.sphereRadius * Math.cos(phi);
+                        }
+                    } else {
+                        // Volume distribution
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const theta = 2 * Math.PI * Math.random();
+                        const r = this.settings.sphereRadius * Math.pow(Math.random(), 1/3);
+                        
+                        x = r * Math.sin(phi) * Math.cos(theta);
+                        y = r * Math.sin(phi) * Math.sin(theta);
+                        z = r * Math.cos(phi);
+                    }
+                    
+                    this.particles.push({
+                        // Base position (anchor)
+                        baseX: x,
+                        baseY: y,
+                        baseZ: z,
+                        
+                        // Current position
+                        x: x,
+                        y: y,
+                        z: z,
+                        
+                        // Velocity
+                        velocityX: 0,
+                        velocityY: 0,
+                        velocityZ: 0,
+                        
+                        // Display properties
+                        screenX: 0,
+                        screenY: 0,
+                        size: this.settings.particleSize
+                    });
+                }
+            }
+            
+            updatePhysics() {
+                const dt = this.physics.deltaTime;
+                
+                this.particles.forEach(particle => {
+                    // Calculate spring force back to base position
+                    const springForceX = -this.settings.springK * (particle.x - particle.baseX);
+                    const springForceY = -this.settings.springK * (particle.y - particle.baseY);
+                    const springForceZ = -this.settings.springK * (particle.z - particle.baseZ);
+                    
+                    // Calculate noise force
+                    const noiseX = this.noise(
+                        particle.baseX * 0.01 + this.time * this.settings.flowSpeed,
+                        particle.baseY * 0.01 + this.time * this.settings.flowSpeed * 0.7,
+                        particle.baseZ * 0.01 + this.time * this.settings.flowSpeed * 1.3
+                    );
+                    
+                    const noiseY = this.noise(
+                        particle.baseX * 0.01 + this.time * this.settings.flowSpeed * 1.1,
+                        particle.baseY * 0.01 + this.time * this.settings.flowSpeed,
+                        particle.baseZ * 0.01 + this.time * this.settings.flowSpeed * 0.9
+                    );
+                    
+                    const noiseZ = this.noise(
+                        particle.baseX * 0.01 + this.time * this.settings.flowSpeed * 0.8,
+                        particle.baseY * 0.01 + this.time * this.settings.flowSpeed * 1.2,
+                        particle.baseZ * 0.01 + this.time * this.settings.flowSpeed
+                    );
+                    
+                    const noiseForceX = noiseX * this.settings.noiseStrength;
+                    const noiseForceY = noiseY * this.settings.noiseStrength;
+                    const noiseForceZ = noiseZ * this.settings.noiseStrength;
+                    
+                    // Total acceleration
+                    const accelX = springForceX + noiseForceX;
+                    const accelY = springForceY + noiseForceY;
+                    const accelZ = springForceZ + noiseForceZ;
+                    
+                    // Update velocity with damping
+                    particle.velocityX = (particle.velocityX + accelX * dt) * this.settings.damping;
+                    particle.velocityY = (particle.velocityY + accelY * dt) * this.settings.damping;
+                    particle.velocityZ = (particle.velocityZ + accelZ * dt) * this.settings.damping;
+                    
+                    // Update position
+                    particle.x += particle.velocityX * dt;
+                    particle.y += particle.velocityY * dt;
+                    particle.z += particle.velocityZ * dt;
+                });
+            }
+            
+            updateParticles() {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                
+                // Apply 3D rotation
+                const cosX = Math.cos(this.interaction.rotationX);
+                const sinX = Math.sin(this.interaction.rotationX);
+                const cosY = Math.cos(this.interaction.rotationY);
+                const sinY = Math.sin(this.interaction.rotationY);
+                
+                this.particles.forEach(particle => {
+                    // Apply rotation matrices
+                    let x = particle.x;
+                    let y = particle.y;
+                    let z = particle.z;
+                    
+                    // Rotate around Y axis
+                    const tempX = x * cosY - z * sinY;
+                    const tempZ = x * sinY + z * cosY;
+                    x = tempX;
+                    z = tempZ;
+                    
+                    // Rotate around X axis
+                    const tempY = y * cosX - z * sinX;
+                    z = y * sinX + z * cosX;
+                    y = tempY;
+                    
+                    // Project to 2D with perspective
+                    const perspective = 300 / (z + 300);
+                    particle.screenX = centerX + x * perspective;
+                    particle.screenY = centerY + y * perspective;
+                    
+                    // Adjust size based on depth
+                    particle.size = this.settings.particleSize * perspective;
+                });
+                
+                // Sort particles by Z for proper depth rendering
+                this.particles.sort((a, b) => {
+                    const aZ = a.x * sinY + a.z * cosY;
+                    const bZ = b.x * sinY + b.z * cosY;
+                    return bZ - aZ;
+                });
+            }
+            
+            drawParticles() {
+                // Clear with background color
+                this.ctx.fillStyle = this.settings.backgroundColor;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.particles.forEach(particle => {
+                    const size = Math.max(1, particle.size);
+                    const opacity = Math.max(0.3, Math.min(1, size / this.settings.particleSize));
+                    
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.fillStyle = this.settings.particleColor;
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.screenX, particle.screenY, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                });
+            }
+            
+            animate(currentTime) {
+                if (this.lastTime === 0) this.lastTime = currentTime;
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+                
+                this.time += deltaTime * 0.001;
+                
+                // Auto-rotation
+                if (this.interaction.autoRotation) {
+                    this.interaction.rotationY += this.settings.rotationSpeed * deltaTime * 0.001;
+                }
+                
+                // Update physics
+                this.updatePhysics();
+                
+                // Update particle positions and rendering
+                this.updateParticles();
+                this.drawParticles();
+                
+                this.animationId = requestAnimationFrame((time) => this.animate(time));
+            }
+            
+            startAnimation() {
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                }
+                this.animationId = requestAnimationFrame((time) => this.animate(time));
+            }
+            
+            updateDisplay() {
+                document.getElementById('count-value').textContent = this.settings.numParticles;
+                document.getElementById('radius-value').textContent = this.settings.sphereRadius;
+                document.getElementById('size-value').textContent = this.settings.particleSize;
+                document.getElementById('speed-value').textContent = this.settings.rotationSpeed.toFixed(1);
+                document.getElementById('noise-value').textContent = this.settings.noiseStrength;
+                document.getElementById('flow-value').textContent = this.settings.flowSpeed.toFixed(1);
+                document.getElementById('push-strength-value').textContent = this.settings.pushStrength;
+                document.getElementById('sigma-value').textContent = this.settings.sigma.toFixed(1);
+                document.getElementById('spring-k-value').textContent = this.settings.springK.toFixed(2);
+                document.getElementById('damping-value').textContent = this.settings.damping.toFixed(2);
+                document.getElementById('max-angle-value').textContent = this.settings.maxInfluenceAngle.toFixed(2);
+            }
+            
+            resetSettings() {
+                this.settings = {
+                    numParticles: 5000,
+                    sphereRadius: 150,
+                    particleSize: 1,
+                    rotationSpeed: 0.2,
+                    noiseStrength: 10,
+                    flowSpeed: 0.3,
+                    distribution: 'volume',
+                    particleColor: '#ffffff',
+                    backgroundColor: '#000000',
+                    seed: Math.random() * 1000,
+                    pushStrength: 50,
+                    sigma: 0.5,
+                    springK: 0.1,
+                    damping: 0.95,
+                    maxInfluenceAngle: Math.PI,
+                    enablePush: true
+                };
+                
+                // Update all controls
+                document.getElementById('particle-count').value = this.settings.numParticles;
+                document.getElementById('sphere-radius').value = this.settings.sphereRadius;
+                document.getElementById('particle-size').value = this.settings.particleSize;
+                document.getElementById('rotation-speed').value = this.settings.rotationSpeed;
+                document.getElementById('noise-strength').value = this.settings.noiseStrength;
+                document.getElementById('flow-speed').value = this.settings.flowSpeed;
+                document.getElementById('push-strength').value = this.settings.pushStrength;
+                document.getElementById('sigma').value = this.settings.sigma;
+                document.getElementById('spring-k').value = this.settings.springK;
+                document.getElementById('damping').value = this.settings.damping;
+                document.getElementById('max-angle').value = this.settings.maxInfluenceAngle;
+                document.getElementById('distribution').value = this.settings.distribution;
+                document.getElementById('particle-color').value = this.settings.particleColor;
+                document.getElementById('bg-color').value = this.settings.backgroundColor;
+                document.getElementById('enable-push').checked = this.settings.enablePush;
+                
+                document.getElementById('color-value').textContent = this.settings.particleColor;
+                document.getElementById('bg-value').textContent = this.settings.backgroundColor;
+                
+                this.interaction.rotationX = 0;
+                this.interaction.rotationY = 0;
+                this.interaction.autoRotation = true;
+                
+                this.initParticleSystem();
+                this.updateDisplay();
+            }
+            
+            resetPhysics() {
+                this.particles.forEach(particle => {
+                    particle.x = particle.baseX;
+                    particle.y = particle.baseY;
+                    particle.z = particle.baseZ;
+                    particle.velocityX = 0;
+                    particle.velocityY = 0;
+                    particle.velocityZ = 0;
+                });
+            }
+            
+            handleResize() {
+                // Maintain aspect ratio and update canvas size if needed
+                // For now, just ensure the canvas fits the container
+                const container = this.canvas.parentElement;
+                const rect = container.getBoundingClientRect();
+                
+                if (rect.width !== this.canvas.width || rect.height !== this.canvas.height) {
+                    this.canvas.width = rect.width;
+                    this.canvas.height = rect.height;
+                }
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new PhysicsParticleSphere();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Particle Sphere</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        #canvas-container {
+            position: relative;
+            margin: 20px 0;
+        }
+        
+        canvas {
+            border: 1px solid #333;
+            border-radius: 10px;
+            cursor: grab;
+        }
+        
+        canvas:active {
+            cursor: grabbing;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-size: 12px;
+            color: #ccc;
+        }
+        
+        input[type="range"] {
+            width: 150px;
+        }
+        
+        input[type="number"] {
+            width: 60px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        
+        button {
+            background: #444;
+            color: white;
+            border: 1px solid #666;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #555;
+        }
+        
+        .info {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <h2>Interactive Particle Sphere</h2>
+        <p>Drag to rotate • Scroll to zoom • Adjust settings below</p>
+    </div>
+    
+    <div id="canvas-container">
+        <canvas id="particle-canvas" width="600" height="600"></canvas>
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Particle Count: <span id="count-value">1000</span></label>
+            <input type="range" id="particle-count" min="100" max="5000" value="1000" step="100">
+        </div>
+        
+        <div class="control-group">
+            <label>Sphere Radius: <span id="radius-value">150</span></label>
+            <input type="range" id="sphere-radius" min="50" max="250" value="150" step="10">
+        </div>
+        
+        <div class="control-group">
+            <label>Particle Size: <span id="size-value">2</span></label>
+            <input type="range" id="particle-size" min="1" max="8" value="2" step="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Rotation Speed: <span id="speed-value">0.5</span></label>
+            <input type="range" id="rotation-speed" min="0" max="2" value="0.5" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>Distribution:</label>
+            <select id="distribution">
+                <option value="volume">Volume</option>
+                <option value="surface">Surface</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="reset-rotation">Reset Rotation</button>
+        <button id="reset-settings">Reset All Settings</button>
+    </div>
+
+    <script>
+        class ParticleSphere {
+            constructor() {
+                this.canvas = document.getElementById('particle-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Settings
+                this.settings = {
+                    numParticles: 1000,
+                    sphereRadius: 150,
+                    particleSize: 2,
+                    rotationSpeed: 0.5,
+                    distribution: 'volume'
+                };
+                
+                // Interaction state
+                this.interaction = {
+                    isDragging: false,
+                    lastX: 0,
+                    lastY: 0,
+                    rotationX: 0,
+                    rotationY: 0,
+                    autoRotation: true
+                };
+                
+                // Particles array
+                this.particles = [];
+                
+                // Animation
+                this.animationId = null;
+                this.lastTime = 0;
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.initParticleSystem();
+                this.startAnimation();
+                this.updateDisplay();
+            }
+            
+            setupEventListeners() {
+                // Mouse events
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.interaction.isDragging = true;
+                    this.interaction.lastX = e.clientX;
+                    this.interaction.lastY = e.clientY;
+                    this.interaction.autoRotation = false;
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.interaction.isDragging) {
+                        const deltaX = e.clientX - this.interaction.lastX;
+                        const deltaY = e.clientY - this.interaction.lastY;
+                        
+                        this.interaction.rotationY += deltaX * 0.01;
+                        this.interaction.rotationX += deltaY * 0.01;
+                        
+                        this.interaction.lastX = e.clientX;
+                        this.interaction.lastY = e.clientY;
+                    }
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.interaction.isDragging = false;
+                });
+                
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.interaction.isDragging = false;
+                });
+                
+                // Touch events
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    this.interaction.isDragging = true;
+                    this.interaction.lastX = touch.clientX;
+                    this.interaction.lastY = touch.clientY;
+                    this.interaction.autoRotation = false;
+                });
+                
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (this.interaction.isDragging) {
+                        const touch = e.touches[0];
+                        const deltaX = touch.clientX - this.interaction.lastX;
+                        const deltaY = touch.clientY - this.interaction.lastY;
+                        
+                        this.interaction.rotationY += deltaX * 0.01;
+                        this.interaction.rotationX += deltaY * 0.01;
+                        
+                        this.interaction.lastX = touch.clientX;
+                        this.interaction.lastY = touch.clientY;
+                    }
+                });
+                
+                this.canvas.addEventListener('touchend', () => {
+                    this.interaction.isDragging = false;
+                });
+                
+                // Control events
+                document.getElementById('particle-count').addEventListener('input', (e) => {
+                    this.settings.numParticles = parseInt(e.target.value);
+                    this.initParticleSystem();
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('sphere-radius').addEventListener('input', (e) => {
+                    this.settings.sphereRadius = parseInt(e.target.value);
+                    this.initParticleSystem();
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('particle-size').addEventListener('input', (e) => {
+                    this.settings.particleSize = parseInt(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('rotation-speed').addEventListener('input', (e) => {
+                    this.settings.rotationSpeed = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('distribution').addEventListener('change', (e) => {
+                    this.settings.distribution = e.target.value;
+                    this.initParticleSystem();
+                });
+                
+                document.getElementById('reset-rotation').addEventListener('click', () => {
+                    this.interaction.rotationX = 0;
+                    this.interaction.rotationY = 0;
+                    this.interaction.autoRotation = true;
+                });
+                
+                document.getElementById('reset-settings').addEventListener('click', () => {
+                    this.resetSettings();
+                });
+            }
+            
+            initParticleSystem() {
+                this.particles = [];
+                console.log(`Creating ${this.settings.numParticles} particles with radius ${this.settings.sphereRadius}`);
+                
+                for (let i = 0; i < this.settings.numParticles; i++) {
+                    let x, y, z;
+                    
+                    if (this.settings.distribution === 'surface') {
+                        // Surface distribution
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const theta = 2 * Math.PI * Math.random();
+                        
+                        x = this.settings.sphereRadius * Math.sin(phi) * Math.cos(theta);
+                        y = this.settings.sphereRadius * Math.sin(phi) * Math.sin(theta);
+                        z = this.settings.sphereRadius * Math.cos(phi);
+                    } else {
+                        // Volume distribution
+                        const phi = Math.acos(2 * Math.random() - 1);
+                        const theta = 2 * Math.PI * Math.random();
+                        const r = this.settings.sphereRadius * Math.pow(Math.random(), 1/3);
+                        
+                        x = r * Math.sin(phi) * Math.cos(theta);
+                        y = r * Math.sin(phi) * Math.sin(theta);
+                        z = r * Math.cos(phi);
+                    }
+                    
+                    this.particles.push({
+                        x3d: x,
+                        y3d: y,
+                        z3d: z,
+                        x: 0,
+                        y: 0,
+                        size: this.settings.particleSize
+                    });
+                }
+            }
+            
+            updateParticles() {
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                
+                // Debug: log first few particles
+                if (this.particles.length > 0) {
+                    const firstParticle = this.particles[0];
+                    console.log(`First particle 3D: (${firstParticle.x3d.toFixed(1)}, ${firstParticle.y3d.toFixed(1)}, ${firstParticle.z3d.toFixed(1)})`);
+                }
+                
+                // Apply 3D rotation
+                const cosX = Math.cos(this.interaction.rotationX);
+                const sinX = Math.sin(this.interaction.rotationX);
+                const cosY = Math.cos(this.interaction.rotationY);
+                const sinY = Math.sin(this.interaction.rotationY);
+                
+                this.particles.forEach(particle => {
+                    // Apply rotation matrices
+                    let x = particle.x3d;
+                    let y = particle.y3d;
+                    let z = particle.z3d;
+                    
+                    // Rotate around Y axis
+                    const tempX = x * cosY - z * sinY;
+                    const tempZ = x * sinY + z * cosY;
+                    x = tempX;
+                    z = tempZ;
+                    
+                    // Rotate around X axis
+                    const tempY = y * cosX - z * sinX;
+                    z = y * sinX + z * cosX;
+                    y = tempY;
+                    
+                    // Project to 2D with perspective
+                    const perspective = 300 / (z + 300);
+                    particle.x = centerX + x * perspective;
+                    particle.y = centerY + y * perspective;
+                    
+                    // Adjust size based on depth
+                    particle.size = this.settings.particleSize * perspective;
+                });
+                
+                // Sort particles by Z for proper depth rendering
+                this.particles.sort((a, b) => {
+                    const aZ = a.x3d * sinY + a.z3d * cosY;
+                    const bZ = b.x3d * sinY + b.z3d * cosY;
+                    return bZ - aZ;
+                });
+            }
+            
+            drawParticles() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                this.particles.forEach(particle => {
+                    const size = Math.max(1, particle.size);
+                    const opacity = Math.max(0.4, Math.min(1, size / this.settings.particleSize));
+                    
+                    this.ctx.save();
+                    this.ctx.globalAlpha = opacity;
+                    this.ctx.fillStyle = '#ffffff';
+                    this.ctx.beginPath();
+                    this.ctx.arc(particle.x, particle.y, size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                });
+            }
+            
+            animate(currentTime) {
+                if (this.lastTime === 0) this.lastTime = currentTime;
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+                
+                // Auto-rotation
+                if (this.interaction.autoRotation) {
+                    this.interaction.rotationY += this.settings.rotationSpeed * deltaTime * 0.001;
+                }
+                
+                this.updateParticles();
+                this.drawParticles();
+                
+                this.animationId = requestAnimationFrame((time) => this.animate(time));
+            }
+            
+            startAnimation() {
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                }
+                this.animationId = requestAnimationFrame((time) => this.animate(time));
+            }
+            
+            updateDisplay() {
+                document.getElementById('count-value').textContent = this.settings.numParticles;
+                document.getElementById('radius-value').textContent = this.settings.sphereRadius;
+                document.getElementById('size-value').textContent = this.settings.particleSize;
+                document.getElementById('speed-value').textContent = this.settings.rotationSpeed.toFixed(1);
+            }
+            
+            resetSettings() {
+                this.settings = {
+                    numParticles: 1000,
+                    sphereRadius: 150,
+                    particleSize: 2,
+                    rotationSpeed: 0.5,
+                    distribution: 'volume'
+                };
+                
+                document.getElementById('particle-count').value = this.settings.numParticles;
+                document.getElementById('sphere-radius').value = this.settings.sphereRadius;
+                document.getElementById('particle-size').value = this.settings.particleSize;
+                document.getElementById('rotation-speed').value = this.settings.rotationSpeed;
+                document.getElementById('distribution').value = this.settings.distribution;
+                
+                this.interaction.rotationX = 0;
+                this.interaction.rotationY = 0;
+                this.interaction.autoRotation = true;
+                
+                this.initParticleSystem();
+                this.updateDisplay();
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ParticleSphere();
+        });
+    </script>
+</body>
+</html>

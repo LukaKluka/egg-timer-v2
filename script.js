@@ -1,4 +1,6 @@
-// Egg Timer Application
+// Egg Timer Application with Three.js Particle System
+// Note: This version uses CDN libraries loaded via script tags in HTML
+
 class EggTimer {
     constructor() {
         this.timer = null;
@@ -14,26 +16,43 @@ class EggTimer {
             hard: { cold: 600, room: 540 }     // 10 min cold, 9 min room
         };
         
-        // Particle system settings (ADJUSTABLE VIA DEV CONTROLS)
+        // Three.js Particle system settings
         this.particleSettings = {
-            numParticles: 120,        // Total number of particles
-            baseSpeed: 0,             // Base movement speed (0 = no movement)
-            wiggleAmount: 0,          // Wiggle movement amount (0 = no wiggle)
-            randomFactor: 0,          // Randomness factor (0 = no randomness)
-            showSphere: true,         // Show central sphere
-            showEmitter: false,       // Show particle emitter
-            sphereRadius: 30,         // Sphere radius
-            emitterRadius: 40,        // Emitter radius
-            sphereRotation: 0.02,     // Sphere rotation speed (default rotation)
-            particleSize: 6,          // Uniform particle size (radius in px)
-            gridSpacing: 8,           // Grid spacing for sphere formation
-            expansionFactor: 0        // How much particles expand outward
+            particleSize: 1,
+            particleCount: 8000,
+            sphereRadius: 60,
+            distribution: 'volume', // 'surface' or 'volume'
+            dispersion: 0,
+            flowSpeed: 0.3,
+            noiseStrength: 0.8,
+            noiseScale: 1,
+            rotationSpeed: 0.3,
+            randomnessX: 1,
+            randomnessY: 1,
+            randomnessZ: 1,
+            seed: 0,
+            particleColor: '#ffffff'
         };
+        
+        // Three.js variables
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.controls = null;
+        this.particleSystem = null;
+        this.basePositions = [];
+        this.currentPositions = [];
+        this.noise3D = null;
+        this.clock = null;
+        this.animationId = null;
         
         this.initializeElements();
         this.setupEventListeners();
         this.setupDevControls();
         this.setDefaultSelection();
+        
+        // Initialize Three.js after a short delay to ensure libraries are loaded
+        setTimeout(() => this.initThreeJS(), 100);
     }
     
     initializeElements() {
@@ -46,18 +65,221 @@ class EggTimer {
         this.resetBtn = document.getElementById('reset-btn');
         this.alarmSound = document.getElementById('alarm-sound');
         
-        // Particle system
-        this.canvas = document.getElementById('particle-canvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.particles = [];
-        this.animationId = null;
+        // Get the canvas container
+        this.canvasContainer = document.getElementById('particle-canvas');
         
         this.cookingModeBtns = document.querySelectorAll('.cooking-mode-btn');
         this.tempBtns = document.querySelectorAll('.temp-btn');
+    }
+    
+    initThreeJS() {
+        // Check if Three.js is available
+        if (typeof THREE === 'undefined') {
+            console.error('Three.js not loaded. Please check the CDN links.');
+            return;
+        }
         
-        // Initialize particle system immediately
-        this.initParticleSystem();
-        this.startParticleAnimation();
+        this.clock = new THREE.Clock();
+        this.setupScene();
+        this.setupCamera();
+        this.setupRenderer();
+        this.setupControls();
+        this.createParticleSystem();
+        this.animate();
+    }
+    
+    setupScene() {
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0xf8fafc);
+    }
+    
+    setupCamera() {
+        const container = this.canvasContainer;
+        const aspect = container.clientWidth / container.clientHeight;
+        this.camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+        this.camera.position.set(0, 0, 120);
+    }
+    
+    setupRenderer() {
+        this.renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            alpha: true
+        });
+        
+        const container = this.canvasContainer;
+        this.renderer.setSize(container.clientWidth, container.clientHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        // Clear the container and add the Three.js canvas
+        container.innerHTML = '';
+        container.appendChild(this.renderer.domElement);
+        
+        // Style the canvas to fit the container
+        this.renderer.domElement.style.width = '100%';
+        this.renderer.domElement.style.height = '100%';
+        this.renderer.domElement.style.borderRadius = '50%';
+    }
+    
+    setupControls() {
+        if (typeof THREE.OrbitControls === 'undefined' && typeof OrbitControls === 'undefined') {
+            console.warn('OrbitControls not available, using basic controls');
+            this.controls = {
+                update: () => {},
+                autoRotate: true,
+                autoRotateSpeed: 0.5,
+                reset: () => {}
+            };
+        } else {
+            const OrbitControlsClass = THREE.OrbitControls || OrbitControls;
+            this.controls = new OrbitControlsClass(this.camera, this.renderer.domElement);
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.05;
+            this.controls.enableZoom = false;
+            this.controls.enablePan = false;
+            this.controls.autoRotate = true;
+            this.controls.autoRotateSpeed = 0.5;
+        }
+    }
+    
+    createParticleSystem() {
+        this.updateSeed();
+        this.generateBasePositions();
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(this.currentPositions, 3));
+        
+        const material = new THREE.PointsMaterial({
+            size: this.particleSettings.particleSize,
+            sizeAttenuation: false,
+            color: this.particleSettings.particleColor,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        
+        this.particleSystem = new THREE.Points(geometry, material);
+        this.scene.add(this.particleSystem);
+    }
+    
+    generateBasePositions() {
+        const positions = [];
+        this.basePositions = [];
+        
+        for (let i = 0; i < this.particleSettings.particleCount; i++) {
+            let x, y, z;
+            
+            if (this.particleSettings.distribution === 'surface') {
+                const phi = Math.acos(2 * Math.random() - 1);
+                const theta = 2 * Math.PI * Math.random();
+                
+                x = this.particleSettings.sphereRadius * Math.sin(phi) * Math.cos(theta);
+                y = this.particleSettings.sphereRadius * Math.sin(phi) * Math.sin(theta);
+                z = this.particleSettings.sphereRadius * Math.cos(phi);
+            } else {
+                const phi = Math.acos(2 * Math.random() - 1);
+                const theta = 2 * Math.PI * Math.random();
+                const r = this.particleSettings.sphereRadius * Math.pow(Math.random(), 1/3);
+                
+                x = r * Math.sin(phi) * Math.cos(theta);
+                y = r * Math.sin(phi) * Math.sin(theta);
+                z = r * Math.cos(phi);
+            }
+            
+            this.basePositions.push(x, y, z);
+            positions.push(x, y, z);
+        }
+        
+        this.currentPositions = new Float32Array(positions);
+    }
+    
+    updateSeed() {
+        // Simple noise function if simplex-noise is not available
+        if (typeof createNoise3D !== 'undefined') {
+            this.noise3D = createNoise3D(() => this.particleSettings.seed);
+        } else if (typeof SimplexNoise !== 'undefined') {
+            // Alternative simplex noise library
+            const simplex = new SimplexNoise();
+            this.noise3D = (x, y, z) => simplex.noise3D(x, y, z);
+        } else {
+            // Fallback simple noise
+            this.noise3D = (x, y, z) => {
+                const n = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
+                return (n - Math.floor(n)) * 2 - 1;
+            };
+        }
+    }
+    
+    updateParticlePositions(time) {
+        if (!this.particleSystem) return;
+        
+        const positions = this.particleSystem.geometry.attributes.position.array;
+        
+        for (let i = 0; i < this.particleSettings.particleCount; i++) {
+            const baseIndex = i * 3;
+            const baseX = this.basePositions[baseIndex];
+            const baseY = this.basePositions[baseIndex + 1];
+            const baseZ = this.basePositions[baseIndex + 2];
+            
+            // Calculate noise offsets
+            const noiseX = this.noise3D(
+                baseX * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed,
+                baseY * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed * 0.7,
+                baseZ * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed * 1.3
+            );
+            
+            const noiseY = this.noise3D(
+                baseX * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed * 1.1,
+                baseY * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed,
+                baseZ * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed * 0.9
+            );
+            
+            const noiseZ = this.noise3D(
+                baseX * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed * 0.8,
+                baseY * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed * 1.2,
+                baseZ * this.particleSettings.noiseScale * 0.01 + time * this.particleSettings.flowSpeed
+            );
+            
+            // Apply noise with per-axis randomness
+            const offsetX = noiseX * this.particleSettings.noiseStrength * this.particleSettings.randomnessX;
+            const offsetY = noiseY * this.particleSettings.noiseStrength * this.particleSettings.randomnessY;
+            const offsetZ = noiseZ * this.particleSettings.noiseStrength * this.particleSettings.randomnessZ;
+            
+            // Calculate final position with dispersion
+            const distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
+            const dispersionFactor = distance / this.particleSettings.sphereRadius;
+            
+            positions[baseIndex] = baseX + offsetX + (baseX / distance) * this.particleSettings.dispersion * dispersionFactor;
+            positions[baseIndex + 1] = baseY + offsetY + (baseY / distance) * this.particleSettings.dispersion * dispersionFactor;
+            positions[baseIndex + 2] = baseZ + offsetZ + (baseZ / distance) * this.particleSettings.dispersion * dispersionFactor;
+        }
+        
+        this.particleSystem.geometry.attributes.position.needsUpdate = true;
+    }
+    
+    animate() {
+        this.animationId = requestAnimationFrame(() => this.animate());
+        
+        if (!this.clock) return;
+        
+        const time = this.clock.getElapsedTime();
+        
+        // Update particle positions
+        this.updateParticlePositions(time);
+        
+        // Apply rotation to the entire particle system
+        if (this.particleSystem) {
+            this.particleSystem.rotation.y = time * this.particleSettings.rotationSpeed;
+        }
+        
+        // Update controls
+        if (this.controls && this.controls.update) {
+            this.controls.update();
+        }
+        
+        // Render
+        if (this.renderer && this.scene && this.camera) {
+            this.renderer.render(this.scene, this.camera);
+        }
     }
     
     setupEventListeners() {
@@ -82,53 +304,115 @@ class EggTimer {
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+        
+        // Window resize
+        window.addEventListener('resize', () => this.onWindowResize());
+    }
+    
+    onWindowResize() {
+        if (this.camera && this.renderer) {
+            const container = this.canvasContainer;
+            const aspect = container.clientWidth / container.clientHeight;
+            
+            this.camera.aspect = aspect;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(container.clientWidth, container.clientHeight);
+        }
     }
     
     setupDevControls() {
         // Particle count controls
         document.getElementById('particles-down').addEventListener('click', () => {
-            this.particleSettings.numParticles = Math.max(10, this.particleSettings.numParticles - 10);
+            this.particleSettings.particleCount = Math.max(1000, this.particleSettings.particleCount - 1000);
             this.updateDevDisplay();
-            this.reinitParticleSystem();
+            this.rebuildParticleSystem();
         });
         
         document.getElementById('particles-up').addEventListener('click', () => {
-            this.particleSettings.numParticles = Math.min(2000, this.particleSettings.numParticles + 10);
+            this.particleSettings.particleCount = Math.min(20000, this.particleSettings.particleCount + 1000);
             this.updateDevDisplay();
-            this.reinitParticleSystem();
+            this.rebuildParticleSystem();
         });
         
         // Speed controls
         document.getElementById('speed-down').addEventListener('click', () => {
-            this.particleSettings.baseSpeed = Math.max(0.001, this.particleSettings.baseSpeed - 0.005);
+            this.particleSettings.flowSpeed = Math.max(0, this.particleSettings.flowSpeed - 0.1);
             this.updateDevDisplay();
         });
         
         document.getElementById('speed-up').addEventListener('click', () => {
-            this.particleSettings.baseSpeed = Math.min(0.1, this.particleSettings.baseSpeed + 0.005);
+            this.particleSettings.flowSpeed = Math.min(2, this.particleSettings.flowSpeed + 0.1);
             this.updateDevDisplay();
         });
         
-        // Wiggle controls
+        // Wiggle controls (noise strength)
         document.getElementById('wiggle-down').addEventListener('click', () => {
-            this.particleSettings.wiggleAmount = Math.max(0, this.particleSettings.wiggleAmount - 1);
+            this.particleSettings.noiseStrength = Math.max(0, this.particleSettings.noiseStrength - 0.1);
             this.updateDevDisplay();
         });
         
         document.getElementById('wiggle-up').addEventListener('click', () => {
-            this.particleSettings.wiggleAmount = Math.min(20, this.particleSettings.wiggleAmount + 1);
+            this.particleSettings.noiseStrength = Math.min(3, this.particleSettings.noiseStrength + 0.1);
             this.updateDevDisplay();
         });
         
-        // Random controls
+        // Random controls (dispersion)
         document.getElementById('random-down').addEventListener('click', () => {
-            this.particleSettings.randomFactor = Math.max(0, this.particleSettings.randomFactor - 0.1);
+            this.particleSettings.dispersion = Math.max(0, this.particleSettings.dispersion - 0.5);
             this.updateDevDisplay();
         });
         
         document.getElementById('random-up').addEventListener('click', () => {
-            this.particleSettings.randomFactor = Math.min(2, this.particleSettings.randomFactor + 0.1);
+            this.particleSettings.dispersion = Math.min(10, this.particleSettings.dispersion + 0.5);
             this.updateDevDisplay();
+        });
+        
+        // Rotation controls
+        document.getElementById('rotation-down').addEventListener('click', () => {
+            this.particleSettings.rotationSpeed = Math.max(0, this.particleSettings.rotationSpeed - 0.1);
+            this.updateDevDisplay();
+        });
+        
+        document.getElementById('rotation-up').addEventListener('click', () => {
+            this.particleSettings.rotationSpeed = Math.min(2, this.particleSettings.rotationSpeed + 0.1);
+            this.updateDevDisplay();
+        });
+        
+        // Size controls
+        document.getElementById('size-down').addEventListener('click', () => {
+            this.particleSettings.particleSize = Math.max(0.5, this.particleSettings.particleSize - 0.5);
+            this.updateDevDisplay();
+            this.updateParticleMaterial();
+        });
+        
+        document.getElementById('size-up').addEventListener('click', () => {
+            this.particleSettings.particleSize = Math.min(3, this.particleSettings.particleSize + 0.5);
+            this.updateDevDisplay();
+            this.updateParticleMaterial();
+        });
+        
+        // Spacing controls (noise scale)
+        document.getElementById('spacing-down').addEventListener('click', () => {
+            this.particleSettings.noiseScale = Math.max(0.1, this.particleSettings.noiseScale - 0.1);
+            this.updateDevDisplay();
+        });
+        
+        document.getElementById('spacing-up').addEventListener('click', () => {
+            this.particleSettings.noiseScale = Math.min(3, this.particleSettings.noiseScale + 0.1);
+            this.updateDevDisplay();
+        });
+        
+        // Expansion controls (distribution toggle)
+        document.getElementById('expand-down').addEventListener('click', () => {
+            this.particleSettings.distribution = this.particleSettings.distribution === 'volume' ? 'surface' : 'volume';
+            this.updateDevDisplay();
+            this.rebuildParticleSystem();
+        });
+        
+        document.getElementById('expand-up').addEventListener('click', () => {
+            this.particleSettings.distribution = this.particleSettings.distribution === 'volume' ? 'surface' : 'volume';
+            this.updateDevDisplay();
+            this.rebuildParticleSystem();
         });
         
         // Toggle controls
@@ -137,13 +421,19 @@ class EggTimer {
         });
         
         document.getElementById('toggle-sphere').addEventListener('click', () => {
-            this.particleSettings.showSphere = !this.particleSettings.showSphere;
+            if (this.controls && this.controls.autoRotate !== undefined) {
+                this.controls.autoRotate = !this.controls.autoRotate;
+            }
             this.updateDevDisplay();
         });
         
         document.getElementById('toggle-emitter').addEventListener('click', () => {
-            this.particleSettings.showEmitter = !this.particleSettings.showEmitter;
+            this.particleSettings.dispersion = this.particleSettings.dispersion > 0 ? 0 : 2;
             this.updateDevDisplay();
+        });
+        
+        document.getElementById('reset-rotation').addEventListener('click', () => {
+            this.resetSphereRotation();
         });
         
         // Initialize display
@@ -151,29 +441,57 @@ class EggTimer {
     }
     
     updateDevDisplay() {
-        document.getElementById('particle-count').textContent = this.particleSettings.numParticles;
-        document.getElementById('speed-value').textContent = this.particleSettings.baseSpeed.toFixed(3);
-        document.getElementById('wiggle-value').textContent = this.particleSettings.wiggleAmount;
-        document.getElementById('random-value').textContent = this.particleSettings.randomFactor.toFixed(1);
+        document.getElementById('particle-count').textContent = this.particleSettings.particleCount;
+        document.getElementById('speed-value').textContent = this.particleSettings.flowSpeed.toFixed(1);
+        document.getElementById('wiggle-value').textContent = this.particleSettings.noiseStrength.toFixed(1);
+        document.getElementById('random-value').textContent = this.particleSettings.dispersion.toFixed(1);
+        document.getElementById('rotation-value').textContent = this.particleSettings.rotationSpeed.toFixed(1);
+        document.getElementById('size-value').textContent = this.particleSettings.particleSize.toFixed(1);
+        document.getElementById('spacing-value').textContent = this.particleSettings.noiseScale.toFixed(1);
+        document.getElementById('expand-value').textContent = this.particleSettings.distribution;
+    }
+    
+    updateParticleMaterial() {
+        if (this.particleSystem) {
+            this.particleSystem.material.size = this.particleSettings.particleSize;
+        }
+    }
+    
+    rebuildParticleSystem() {
+        if (this.particleSystem) {
+            this.scene.remove(this.particleSystem);
+            this.particleSystem.geometry.dispose();
+            this.particleSystem.material.dispose();
+        }
+        this.createParticleSystem();
     }
     
     resetParticleSettings() {
         this.particleSettings = {
-            numParticles: 1000,       // Default to 1000 particles
-            baseSpeed: 0,             // No movement
-            wiggleAmount: 0,          // No wiggle
-            randomFactor: 0,          // No randomness
-            showSphere: true,
-            showEmitter: false,
-            sphereRadius: 30,
-            emitterRadius: 40,
-            sphereRotation: 0.02,     // Default rotation
-            particleSize: 6,          // Uniform particle size (radius in px)
-            gridSpacing: 8,
-            expansionFactor: 0
+            particleSize: 1,
+            particleCount: 8000,
+            sphereRadius: 60,
+            distribution: 'volume',
+            dispersion: 0,
+            flowSpeed: 0.3,
+            noiseStrength: 0.8,
+            noiseScale: 1,
+            rotationSpeed: 0.3,
+            randomnessX: 1,
+            randomnessY: 1,
+            randomnessZ: 1,
+            seed: 0,
+            particleColor: '#ffffff'
         };
         this.updateDevDisplay();
-        this.reinitParticleSystem();
+        this.rebuildParticleSystem();
+    }
+    
+    resetSphereRotation() {
+        if (this.controls && this.controls.reset) {
+            this.controls.reset();
+            this.controls.autoRotate = true;
+        }
     }
     
     setDefaultSelection() {
@@ -269,280 +587,6 @@ class EggTimer {
         }
     }
     
-    initParticleSystem() {
-        this.particles = [];
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const maxRadius = Math.min(centerX, centerY) - 20;
-        
-        // Create particles in a grid-based sphere formation
-        const spacing = this.particleSettings.gridSpacing;
-        const sphereRadius = this.particleSettings.sphereRadius;
-        
-        // Calculate grid dimensions for sphere
-        const gridSize = Math.ceil(sphereRadius * 2 / spacing);
-        const startX = centerX - (gridSize * spacing) / 2;
-        const startY = centerY - (gridSize * spacing) / 2;
-        
-        let particleCount = 0;
-        const maxParticles = this.particleSettings.numParticles;
-        
-        // Create grid-based sphere with uniform particle size
-        for (let x = 0; x < gridSize && particleCount < maxParticles; x++) {
-            for (let y = 0; y < gridSize && particleCount < maxParticles; y++) {
-                const gridX = startX + x * spacing;
-                const gridY = startY + y * spacing;
-                
-                // Calculate distance from center
-                const distance = Math.sqrt((gridX - centerX) ** 2 + (gridY - centerY) ** 2);
-                
-                // Only place particles within sphere radius
-                if (distance <= sphereRadius) {
-                    this.particles.push({
-                        x: gridX,
-                        y: gridY,
-                        originalX: gridX,
-                        originalY: gridY,
-                        centerX: centerX,
-                        centerY: centerY,
-                        distance: distance,
-                        angle: Math.atan2(gridY - centerY, gridX - centerX),
-                        size: 6, // Hardcoded uniform size for all particles
-                        speed: this.particleSettings.baseSpeed,
-                        phase: Math.random() * Math.PI * 2,
-                        randomOffset: Math.random() * Math.PI * 2,
-                        velocityX: 0,
-                        velocityY: 0,
-                        expansionDirection: {
-                            x: (gridX - centerX) / distance,
-                            y: (gridY - centerY) / distance
-                        }
-                    });
-                    particleCount++;
-                }
-            }
-        }
-        
-        console.log('Created', this.particles.length, 'particles with uniform size of 6px');
-    }
-    
-    reinitParticleSystem() {
-        this.stopParticleAnimation();
-        this.initParticleSystem();
-        this.startParticleAnimation();
-    }
-    
-    drawParticles() {
-        if (!this.ctx) return;
-        
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Calculate progress for color
-        let progress = 0;
-        if (this.isRunning && this.selectedMode && this.selectedTemp) {
-            const totalTime = this.timerSettings[this.selectedMode][this.selectedTemp];
-            progress = (totalTime - this.timeRemaining) / totalTime;
-        }
-        
-        // Draw central sphere if enabled
-        if (this.particleSettings.showSphere) {
-            this.drawSphere(progress);
-        }
-        
-        // Draw emitter if enabled
-        if (this.particleSettings.showEmitter) {
-            this.drawEmitter();
-        }
-        
-        // Draw all particles
-        this.particles.forEach(particle => {
-            this.ctx.beginPath();
-            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-            
-            // Color based on progress
-            if (progress === 0) {
-                this.ctx.fillStyle = '#374151'; // Dark gray for idle state
-            } else if (progress < 0.3) {
-                this.ctx.fillStyle = '#fbbf24'; // Yellow
-            } else if (progress < 0.6) {
-                this.ctx.fillStyle = '#f59e0b'; // Orange
-            } else if (progress < 0.8) {
-                this.ctx.fillStyle = '#d97706'; // Dark orange
-            } else {
-                this.ctx.fillStyle = '#92400e'; // Brown
-            }
-            
-            this.ctx.fill();
-        });
-    }
-    
-    drawSphere(progress) {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const radius = this.particleSettings.sphereRadius;
-        
-        // Create gradient for sphere
-        const gradient = this.ctx.createRadialGradient(
-            centerX - radius * 0.3, centerY - radius * 0.3, 0,
-            centerX, centerY, radius
-        );
-        
-        // Color based on progress
-        let baseColor = '#e5e7eb'; // Light gray for idle
-        if (progress > 0) {
-            if (progress < 0.3) baseColor = '#fef3c7'; // Light yellow
-            else if (progress < 0.6) baseColor = '#fed7aa'; // Light orange
-            else if (progress < 0.8) baseColor = '#fdba74'; // Orange
-            else baseColor = '#fb923c'; // Dark orange
-        }
-        
-        gradient.addColorStop(0, baseColor);
-        gradient.addColorStop(0.7, baseColor);
-        gradient.addColorStop(1, this.adjustBrightness(baseColor, -20));
-        
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        this.ctx.fillStyle = gradient;
-        this.ctx.fill();
-        
-        // Add highlight
-        this.ctx.beginPath();
-        this.ctx.arc(centerX - radius * 0.3, centerY - radius * 0.3, radius * 0.4, 0, Math.PI * 2);
-        this.ctx.fillStyle = this.adjustBrightness(baseColor, 30);
-        this.ctx.fill();
-    }
-    
-    drawEmitter() {
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const radius = this.particleSettings.emitterRadius;
-        
-        this.ctx.beginPath();
-        this.ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        this.ctx.strokeStyle = '#ef4444';
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-        
-        // Draw emitter particles
-        for (let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2 + Date.now() * 0.001;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = centerY + Math.sin(angle) * radius;
-            
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, 2, 0, Math.PI * 2);
-            this.ctx.fillStyle = '#ef4444';
-            this.ctx.fill();
-        }
-    }
-    
-    adjustBrightness(color, percent) {
-        const num = parseInt(color.replace("#", ""), 16);
-        const amt = Math.round(2.55 * percent);
-        const R = (num >> 16) + amt;
-        const G = (num >> 8 & 0x00FF) + amt;
-        const B = (num & 0x0000FF) + amt;
-        return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
-            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
-            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
-    }
-    
-    updateParticleAnimation() {
-        if (!this.ctx) return;
-        
-        // Calculate progress (0 to 1)
-        let progress = 0;
-        if (this.isRunning && this.selectedMode && this.selectedTemp) {
-            const totalTime = this.timerSettings[this.selectedMode][this.selectedTemp];
-            progress = (totalTime - this.timeRemaining) / totalTime;
-        }
-        
-        const centerX = this.canvas.width / 2;
-        const centerY = this.canvas.height / 2;
-        const time = Date.now() * 0.001;
-        
-        // Update particle positions with sphere rotation and expansion
-        this.particles.forEach(particle => {
-            // Apply sphere rotation
-            const rotatedAngle = particle.angle + (time * this.particleSettings.sphereRotation);
-            
-            // Calculate base position with rotation
-            let baseX = centerX + Math.cos(rotatedAngle) * particle.distance;
-            let baseY = centerY + Math.sin(rotatedAngle) * particle.distance;
-            
-            // Apply expansion factor - particles move outward from center
-            const expansionDistance = particle.distance + (this.particleSettings.expansionFactor * 20);
-            baseX = centerX + Math.cos(rotatedAngle) * expansionDistance;
-            baseY = centerY + Math.sin(rotatedAngle) * expansionDistance;
-            
-            // Add floating movement based on controls
-            const floatX = Math.sin(time + particle.phase) * this.particleSettings.wiggleAmount * 0.5;
-            const floatY = Math.cos(time + particle.phase * 0.7) * this.particleSettings.wiggleAmount * 0.5;
-            
-            // Add random drift based on controls
-            const randomX = Math.sin(time * 0.5 + particle.randomOffset) * this.particleSettings.randomFactor * 2;
-            const randomY = Math.cos(time * 0.3 + particle.randomOffset) * this.particleSettings.randomFactor * 2;
-            
-            // Calculate target position
-            let targetX = baseX + floatX + randomX;
-            let targetY = baseY + floatY + randomY;
-            
-            // Move toward center as cooking progresses (if sphere is shown)
-            if (progress > 0 && this.particleSettings.showSphere) {
-                const dx = centerX - targetX;
-                const dy = centerY - targetY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const maxDistance = this.particleSettings.sphereRadius + 20;
-                
-                if (distance > maxDistance) {
-                    targetX += dx * progress * 0.1;
-                    targetY += dy * progress * 0.1;
-                }
-            }
-            
-            // Smooth movement with velocity
-            particle.velocityX += (targetX - particle.x) * 0.05;
-            particle.velocityY += (targetY - particle.y) * 0.05;
-            
-            // Apply velocity with damping
-            particle.x += particle.velocityX;
-            particle.y += particle.velocityY;
-            
-            // Damping
-            particle.velocityX *= 0.95;
-            particle.velocityY *= 0.95;
-            
-            // Keep particles within bounds
-            const maxRadius = Math.min(centerX, centerY) - 10;
-            const distance = Math.sqrt((particle.x - centerX) ** 2 + (particle.y - centerY) ** 2);
-            if (distance > maxRadius) {
-                const angle = Math.atan2(particle.y - centerY, particle.x - centerX);
-                particle.x = centerX + Math.cos(angle) * maxRadius;
-                particle.y = centerY + Math.sin(angle) * maxRadius;
-            }
-        });
-        
-        // Draw all particles
-        this.drawParticles();
-        
-        // Continue animation
-        this.animationId = requestAnimationFrame(() => this.updateParticleAnimation());
-    }
-    
-    startParticleAnimation() {
-        console.log('Starting particle animation...');
-        this.initParticleSystem();
-        this.updateParticleAnimation();
-    }
-    
-    stopParticleAnimation() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-            this.animationId = null;
-        }
-    }
-    
     timerComplete() {
         // Stop timer
         clearInterval(this.timer);
@@ -555,9 +599,6 @@ class EggTimer {
         // Update display
         this.timeRemainingEl.textContent = '00:00:00';
         this.cookingModeDisplay.textContent = 'Time\'s up! 🎉';
-        
-        // Stop particle animation
-        this.stopParticleAnimation();
         
         // Switch buttons back
         this.startBtn.classList.remove('hidden');
@@ -592,9 +633,6 @@ class EggTimer {
         // Remove completion state
         this.timerDisplay.classList.remove('timer-complete');
         this.timerDisplay.classList.remove('countdown-active');
-        
-        // Stop particle animation
-        this.stopParticleAnimation();
         
         // Reset timer display
         this.timeRemainingEl.textContent = '00:00:00';
@@ -677,9 +715,6 @@ class EggTimer {
         // Remove completion state
         this.timerDisplay.classList.remove('timer-complete');
         this.timerDisplay.classList.remove('countdown-active');
-        
-        // Stop particle animation
-        this.stopParticleAnimation();
         
         // Reset timer display
         this.timeRemainingEl.textContent = '00:00:00';

@@ -1,0 +1,327 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import GUI from 'lil-gui';
+import { createNoise2D, createNoise3D } from 'simplex-noise';
+
+// Configuration object for all parameters
+const config = {
+  // Particle properties
+  particleSize: 1,
+  particleCount: 15000,
+  
+  // Sphere properties
+  sphereRadius: 50,
+  
+  // Distribution
+  distribution: 'volume', // 'surface' or 'volume'
+  
+  // Animation properties
+  dispersion: 0,
+  flowSpeed: 0.5,
+  noiseStrength: 1,
+  noiseScale: 1,
+  rotationSpeed: 0.5,
+  
+  // Randomness per axis
+  randomnessX: 1,
+  randomnessY: 1,
+  randomnessZ: 1,
+  
+  // Seed for noise and particle placement
+  seed: 0,
+  
+  // Colors
+  particleColor: '#ffffff',
+  backgroundColor: '#000000'
+};
+
+// Global variables
+let scene, camera, renderer, controls;
+let particleSystem, basePositions, currentPositions;
+let noise2D, noise3D;
+let gui;
+let clock = new THREE.Clock();
+
+// Initialize the application
+function init() {
+  setupScene();
+  setupCamera();
+  setupRenderer();
+  setupControls();
+  setupGUI();
+  createParticleSystem();
+  animate();
+}
+
+// Setup Three.js scene
+function setupScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(config.backgroundColor);
+}
+
+// Setup camera with responsive positioning
+function setupCamera() {
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  camera.position.set(0, 0, 150);
+}
+
+// Setup renderer with high-DPI support
+function setupRenderer() {
+  renderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    powerPreference: "high-performance"
+  });
+  
+  // High-DPI support capped at 2
+  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+}
+
+// Setup orbit controls
+function setupControls() {
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.screenSpacePanning = false;
+  controls.minDistance = 50;
+  controls.maxDistance = 300;
+}
+
+// Setup GUI controls
+function setupGUI() {
+  gui = new GUI();
+  
+  // Particle properties
+  const particleFolder = gui.addFolder('Particle Properties');
+  particleFolder.add(config, 'particleSize', 0.1, 5, 0.1).onChange(updateParticleMaterial);
+  particleFolder.add(config, 'particleCount', 1000, 50000, 1000).onChange(rebuildParticleSystem);
+  particleFolder.addColor(config, 'particleColor').onChange(updateParticleMaterial);
+  
+  // Sphere properties
+  const sphereFolder = gui.addFolder('Sphere Properties');
+  sphereFolder.add(config, 'sphereRadius', 10, 100, 1).onChange(rebuildParticleSystem);
+  sphereFolder.add(config, 'distribution', ['surface', 'volume']).onChange(rebuildParticleSystem);
+  
+  // Animation properties
+  const animationFolder = gui.addFolder('Animation Properties');
+  animationFolder.add(config, 'dispersion', 0, 20, 0.1);
+  animationFolder.add(config, 'flowSpeed', 0, 2, 0.01);
+  animationFolder.add(config, 'noiseStrength', 0, 5, 0.1);
+  animationFolder.add(config, 'noiseScale', 0.1, 5, 0.1);
+  animationFolder.add(config, 'rotationSpeed', 0, 2, 0.01);
+  
+  // Randomness per axis
+  const randomnessFolder = gui.addFolder('Randomness per Axis');
+  randomnessFolder.add(config, 'randomnessX', 0, 2, 0.1);
+  randomnessFolder.add(config, 'randomnessY', 0, 2, 0.1);
+  randomnessFolder.add(config, 'randomnessZ', 0, 2, 0.1);
+  
+  // Seed
+  gui.add(config, 'seed', 0, 1000, 1).onChange(() => {
+    updateSeed();
+    rebuildParticleSystem();
+  });
+  
+  // Background color
+  gui.addColor(config, 'backgroundColor').onChange((color) => {
+    scene.background.setHex(color);
+  });
+  
+  // Reset button
+  gui.add({ reset: () => resetToDefaults() }, 'reset').name('Reset to Defaults');
+}
+
+// Create particle system
+function createParticleSystem() {
+  // Create noise functions
+  updateSeed();
+  
+  // Generate base positions
+  generateBasePositions();
+  
+  // Create geometry
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(currentPositions, 3));
+  
+  // Create material with 1px screen-space particles
+  const material = new THREE.PointsMaterial({
+    size: config.particleSize,
+    sizeAttenuation: false, // Keep particles 1px in screen space
+    color: config.particleColor,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending
+  });
+  
+  // Create points system
+  particleSystem = new THREE.Points(geometry, material);
+  scene.add(particleSystem);
+}
+
+// Generate base positions for particles
+function generateBasePositions() {
+  const positions = [];
+  basePositions = [];
+  
+  for (let i = 0; i < config.particleCount; i++) {
+    let x, y, z;
+    
+    if (config.distribution === 'surface') {
+      // Surface distribution: r = R
+      const phi = Math.acos(2 * Math.random() - 1); // Latitude (0 to π)
+      const theta = 2 * Math.PI * Math.random(); // Longitude (0 to 2π)
+      
+      x = config.sphereRadius * Math.sin(phi) * Math.cos(theta);
+      y = config.sphereRadius * Math.sin(phi) * Math.sin(theta);
+      z = config.sphereRadius * Math.cos(phi);
+    } else {
+      // Volume distribution: r = R * u^(1/3)
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = 2 * Math.PI * Math.random();
+      const r = config.sphereRadius * Math.pow(Math.random(), 1/3);
+      
+      x = r * Math.sin(phi) * Math.cos(theta);
+      y = r * Math.sin(phi) * Math.sin(theta);
+      z = r * Math.cos(phi);
+    }
+    
+    basePositions.push(x, y, z);
+    positions.push(x, y, z);
+  }
+  
+  currentPositions = new Float32Array(positions);
+}
+
+// Update seed for noise functions
+function updateSeed() {
+  noise2D = createNoise2D(() => config.seed);
+  noise3D = createNoise3D(() => config.seed);
+}
+
+// Update particle positions with noise
+function updateParticlePositions(time) {
+  const positions = particleSystem.geometry.attributes.position.array;
+  
+  for (let i = 0; i < config.particleCount; i++) {
+    const baseIndex = i * 3;
+    const baseX = basePositions[baseIndex];
+    const baseY = basePositions[baseIndex + 1];
+    const baseZ = basePositions[baseIndex + 2];
+    
+    // Calculate noise offsets
+    const noiseX = noise3D(
+      baseX * config.noiseScale * 0.01 + time * config.flowSpeed,
+      baseY * config.noiseScale * 0.01 + time * config.flowSpeed * 0.7,
+      baseZ * config.noiseScale * 0.01 + time * config.flowSpeed * 1.3
+    );
+    
+    const noiseY = noise3D(
+      baseX * config.noiseScale * 0.01 + time * config.flowSpeed * 1.1,
+      baseY * config.noiseScale * 0.01 + time * config.flowSpeed,
+      baseZ * config.noiseScale * 0.01 + time * config.flowSpeed * 0.9
+    );
+    
+    const noiseZ = noise3D(
+      baseX * config.noiseScale * 0.01 + time * config.flowSpeed * 0.8,
+      baseY * config.noiseScale * 0.01 + time * config.flowSpeed * 1.2,
+      baseZ * config.noiseScale * 0.01 + time * config.flowSpeed
+    );
+    
+    // Apply noise with per-axis randomness
+    const offsetX = noiseX * config.noiseStrength * config.randomnessX;
+    const offsetY = noiseY * config.noiseStrength * config.randomnessY;
+    const offsetZ = noiseZ * config.noiseStrength * config.randomnessZ;
+    
+    // Calculate final position with dispersion
+    const distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
+    const dispersionFactor = distance / config.sphereRadius;
+    
+    positions[baseIndex] = baseX + offsetX + (baseX / distance) * config.dispersion * dispersionFactor;
+    positions[baseIndex + 1] = baseY + offsetY + (baseY / distance) * config.dispersion * dispersionFactor;
+    positions[baseIndex + 2] = baseZ + offsetZ + (baseZ / distance) * config.dispersion * dispersionFactor;
+  }
+  
+  particleSystem.geometry.attributes.position.needsUpdate = true;
+}
+
+// Update particle material
+function updateParticleMaterial() {
+  if (particleSystem) {
+    particleSystem.material.size = config.particleSize;
+    particleSystem.material.color.setHex(config.particleColor);
+  }
+}
+
+// Rebuild particle system
+function rebuildParticleSystem() {
+  if (particleSystem) {
+    scene.remove(particleSystem);
+    particleSystem.geometry.dispose();
+    particleSystem.material.dispose();
+  }
+  createParticleSystem();
+}
+
+// Reset to default values
+function resetToDefaults() {
+  config.particleSize = 1;
+  config.particleCount = 15000;
+  config.sphereRadius = 50;
+  config.distribution = 'volume';
+  config.dispersion = 0;
+  config.flowSpeed = 0.5;
+  config.noiseStrength = 1;
+  config.noiseScale = 1;
+  config.rotationSpeed = 0.5;
+  config.randomnessX = 1;
+  config.randomnessY = 1;
+  config.randomnessZ = 1;
+  config.seed = 0;
+  config.particleColor = '#ffffff';
+  config.backgroundColor = '#000000';
+  
+  gui.controllers.forEach(controller => controller.updateDisplay());
+  
+  scene.background.setHex(config.backgroundColor);
+  rebuildParticleSystem();
+}
+
+// Handle window resize
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Animation loop
+function animate() {
+  requestAnimationFrame(animate);
+  
+  const time = clock.getElapsedTime();
+  
+  // Update particle positions
+  updateParticlePositions(time);
+  
+  // Apply rotation to the entire particle system
+  particleSystem.rotation.y = time * config.rotationSpeed;
+  
+  // Update controls
+  controls.update();
+  
+  // Render
+  renderer.render(scene, camera);
+}
+
+// Event listeners
+window.addEventListener('resize', onWindowResize);
+
+// Initialize the application
+init();

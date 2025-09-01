@@ -25,6 +25,23 @@
 #particle-canvas {
     background: radial-gradient(circle, #f8fafc 0%, #f1f5f9 100%);
     border: 2px solid #e5e7eb;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    position: relative;
+    overflow: hidden;
+}
+
+#particle-canvas:active {
+    cursor: grabbing;
+}
+
+#particle-canvas canvas {
+    border-radius: 50%;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* Particle animation states */
