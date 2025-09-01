@@ -553,12 +553,12 @@
                 const centerY = this.canvas.height / 2;
                 
                 // Convert screen coordinates to world coordinates
-                // Assuming the sphere is centered at origin and camera is at z = 500
-                const worldX = (canvasX - centerX) * (this.settings.sphereRadius / centerX);
-                const worldY = (centerY - canvasY) * (this.settings.sphereRadius / centerY);
+                // Use a more direct mapping for better accuracy
+                const worldX = (canvasX - centerX) * 0.5;
+                const worldY = (centerY - canvasY) * 0.5;
                 
                 // Create ray from camera position to screen point
-                const rayOrigin = { x: worldX, y: worldY, z: 500 };
+                const rayOrigin = { x: worldX, y: worldY, z: 300 };
                 const rayDir = { x: 0, y: 0, z: -1 }; // Ray goes straight down Z axis
                 
                 // Apply inverse rotation to the ray to account for sphere rotation
@@ -648,9 +648,13 @@
                 hitPoint.y = tempHitY;
                 
                 // Check if hit point is in front third of sphere (closer to camera)
+                console.log('Hit point Z:', hitPoint.z, 'Front third threshold:', this.settings.sphereRadius * 0.33);
                 if (hitPoint.z > this.settings.sphereRadius * 0.33) {
+                    console.log('Hit point too far back, rejecting');
                     return null; // Hit point is too far back, only allow front third
                 }
+                
+                console.log('Hit point accepted, applying impulse');
                 
                 // Calculate surface normal (unit vector from center to hit point)
                 const normal = {
@@ -664,12 +668,15 @@
             
             // Apply impulse to particles near the hit point
             applyImpulse(mouseX, mouseY) {
+                console.log('Applying impulse at:', mouseX, mouseY);
                 const intersection = this.raycastSphere(mouseX, mouseY);
                 
                 if (!intersection) {
+                    console.log('No intersection with sphere');
                     return; // No intersection with sphere
                 }
                 
+                console.log('Hit point:', intersection.hitPoint);
                 const { hitPoint, normal: hitNormal } = intersection;
                 
                 this.particles.forEach(particle => {
