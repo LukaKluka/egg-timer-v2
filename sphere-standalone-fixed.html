@@ -572,8 +572,9 @@
                 const pathLengthMultiplier = this.settings.pathLength || 1.0;
                 
                 // Apply particle speed control - affects the time scale of movement
+                // Longer paths should result in slower visual movement
                 const speedMultiplier = this.settings.particleSpeed || 1.0;
-                const adjustedDeltaTime = deltaTime * speedMultiplier;
+                const adjustedDeltaTime = deltaTime * speedMultiplier / pathLengthMultiplier;
                 
                 this.particles.forEach(particle => {
                     // Calculate distance from base position
