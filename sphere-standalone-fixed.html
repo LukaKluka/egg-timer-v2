@@ -322,10 +322,13 @@
             }
             
             init() {
+                console.log('Initializing PhysicsParticleSphere...');
                 this.setupEventListeners();
                 this.initParticleSystem();
+                console.log('Particles initialized:', this.particles.length);
                 this.startAnimation();
                 this.updateDisplay();
+                console.log('Initialization complete');
             }
             
             setupEventListeners() {
@@ -676,6 +679,7 @@
             }
             
             initParticleSystem() {
+                console.log('Initializing particle system...');
                 this.particles = [];
                 
                 // Initialize permutation table for noise
@@ -748,6 +752,8 @@
                         size: this.settings.particleSize
                     });
                 }
+                console.log('Particle system initialized with', this.particles.length, 'particles');
+                console.log('First particle:', this.particles[0]);
             }
             
             updatePhysics() {
@@ -932,6 +938,12 @@
                 // Update particle positions and rendering
                 this.updateParticles();
                 this.drawParticles();
+                
+                // Debug: Log every 60 frames (once per second)
+                if (this.time % 1 < 0.016) {
+                    console.log('Animation frame - Particles:', this.particles.length, 'First particle screen pos:', 
+                        this.particles[0]?.screenX, this.particles[0]?.screenY);
+                }
                 
                 this.animationId = requestAnimationFrame((time) => this.animate(time));
             }
