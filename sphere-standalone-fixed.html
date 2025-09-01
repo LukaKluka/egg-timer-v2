@@ -248,6 +248,16 @@
                 <span class="value-display" id="randomMovementValue">0.5</span>
             </div>
             <div class="control-row">
+                <label>Path Length:</label>
+                <input type="range" id="pathLength" min="0.1" max="3.0" value="1.0" step="0.1">
+                <span class="value-display" id="pathLengthValue">1.0</span>
+            </div>
+            <div class="control-row">
+                <label>Particle Speed:</label>
+                <input type="range" id="particleSpeed" min="0.1" max="3.0" value="1.0" step="0.1">
+                <span class="value-display" id="particleSpeedValue">1.0</span>
+            </div>
+            <div class="control-row">
                 <label>Touch Strength:</label>
                 <input type="range" id="touchStrength" min="0.5" max="3.0" value="1.5" step="0.1">
                 <span class="value-display" id="touchStrengthValue">1.5</span>
@@ -285,6 +295,8 @@
                     distribution: 'volume',
                     viscosity: 0.8,
                     randomMovement: 0.5,
+                    pathLength: 1.0,      // How far particles travel from base
+                    particleSpeed: 1.0,    // How fast particles move
                     touchStrength: 1.5,
                     rotationSpeed: 0.5,
                     sphereRadius: 175,
@@ -339,10 +351,21 @@
                 document.getElementById('viscosity').addEventListener('input', (e) => {
                     this.settings.viscosity = parseFloat(e.target.value);
                     this.updateDisplay();
+                    this.mapViscosityToPhysics(); // Update physics based on new viscosity
                 });
                 
                 document.getElementById('randomMovement').addEventListener('input', (e) => {
                     this.settings.randomMovement = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('pathLength').addEventListener('input', (e) => {
+                    this.settings.pathLength = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+
+                document.getElementById('particleSpeed').addEventListener('input', (e) => {
+                    this.settings.particleSpeed = parseFloat(e.target.value);
                     this.updateDisplay();
                 });
                 
@@ -439,6 +462,7 @@
                         screenY: 0
                     });
                 }
+                this.mapViscosityToPhysics(); // Initialize physics after particles are set
             }
             
             handlePointerDown(e) {
@@ -539,42 +563,49 @@
                 const springK = 0.1; // Spring constant
                 const damping = 0.95 - (this.settings.viscosity * 0.1); // Viscosity affects damping
                 
+                // Apply path length control - affects how far particles can travel
+                const pathLengthMultiplier = this.settings.pathLength || 1.0;
+                
+                // Apply particle speed control - affects velocity scaling
+                const speedMultiplier = this.settings.particleSpeed || 1.0;
+                
                 this.particles.forEach(particle => {
-                    // Spring force back to base position
-                    const springX = (particle.baseX - particle.x) * springK;
-                    const springY = (particle.baseY - particle.y) * springK;
-                    const springZ = (particle.baseZ - particle.z) * springK;
+                    // Spring force back to base position (affected by path length)
+                    const springX = (particle.baseX - particle.x) * springK * pathLengthMultiplier;
+                    const springY = (particle.baseY - particle.y) * springK * pathLengthMultiplier;
+                    const springZ = (particle.baseZ - particle.z) * springK * pathLengthMultiplier;
                     
-                    // Random movement (affected by viscosity)
-                    const randomScale = this.settings.randomMovement * (1 - this.settings.viscosity * 0.3);
+                    // Random movement (affected by viscosity and path length)
+                    const randomScale = this.settings.randomMovement * (1 - this.settings.viscosity * 0.3) * pathLengthMultiplier;
                     const randomX = (Math.random() - 0.5) * randomScale;
                     const randomY = (Math.random() - 0.5) * randomScale;
                     const randomZ = (Math.random() - 0.5) * randomScale;
                     
-                    // Apply forces
-                    particle.vx += springX + randomX;
-                    particle.vy += springY + randomY;
-                    particle.vz += springZ + randomZ;
+                    // Apply forces with speed multiplier
+                    particle.vx += (springX + randomX) * speedMultiplier;
+                    particle.vy += (springY + randomY) * speedMultiplier;
+                    particle.vz += (springZ + randomZ) * speedMultiplier;
                     
                     // Apply damping (viscosity)
                     particle.vx *= damping;
                     particle.vy *= damping;
                     particle.vz *= damping;
                     
-                    // Update position
-                    particle.x += particle.vx;
-                    particle.y += particle.vy;
-                    particle.z += particle.vz;
+                    // Update position with speed multiplier
+                    particle.x += particle.vx * speedMultiplier;
+                    particle.y += particle.vy * speedMultiplier;
+                    particle.z += particle.vz * speedMultiplier;
                     
-                    // Keep particles within sphere bounds
+                    // Keep particles within sphere bounds (adjusted by path length)
+                    const maxRadius = this.settings.sphereRadius * pathLengthMultiplier;
                     const distance = Math.sqrt(particle.x * particle.x + particle.y * particle.y + particle.z * particle.z);
-                    if (distance > this.settings.sphereRadius) {
-                        const scale = this.settings.sphereRadius / distance;
+                    if (distance > maxRadius) {
+                        const scale = maxRadius / distance;
                         particle.x *= scale;
                         particle.y *= scale;
                         particle.z *= scale;
                         
-                        // Bounce back
+                        // Bounce back with reduced velocity
                         particle.vx *= -0.5;
                         particle.vy *= -0.5;
                         particle.vz *= -0.5;
@@ -684,8 +715,33 @@
                 document.getElementById('particleCountValue').textContent = this.settings.particleCount;
                 document.getElementById('viscosityValue').textContent = this.settings.viscosity.toFixed(1);
                 document.getElementById('randomMovementValue').textContent = this.settings.randomMovement.toFixed(1);
+                document.getElementById('pathLengthValue').textContent = this.settings.pathLength.toFixed(1);
+                document.getElementById('particleSpeedValue').textContent = this.settings.particleSpeed.toFixed(1);
                 document.getElementById('touchStrengthValue').textContent = this.settings.touchStrength.toFixed(1);
                 document.getElementById('rotationSpeedValue').textContent = this.settings.rotationSpeed.toFixed(1);
+            }
+
+            mapViscosityToPhysics() {
+                // Helper lerp function
+                const L = (a, b, t) => a + (b - a) * t;
+                // Exponential curve for nicer feel
+                const E = t => Math.pow(t, 0.7);
+                
+                const vE = E(this.settings.viscosity);
+                
+                // Initialize physics object if it doesn't exist
+                if (!this.physics) {
+                    this.physics = {};
+                }
+                
+                // Low viscosity (v=0): long path, lively, underdamped
+                // High viscosity (v=1): short path, stiff, overdamped
+                this.physics.springK = L(2.0, 7.0, vE);        // stiffer when hard
+                this.physics.damping = L(1.1, 4.6, vE);        // more damping when hard
+                this.physics.noiseStrength = L(0.8, 0.06, vE); // calmer when hard
+                this.physics.flowSpeed = L(1.0, 0.15, vE);
+                this.physics.pushStrength = L(70, 10, vE);     // weaker push when hard
+                this.physics.sigma = L(0.45, 0.9, vE);         // broader, softer spread when hard
             }
         }
         

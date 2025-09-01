@@ -1,602 +1,327 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import GUI from 'lil-gui';
-import { createNoise3D } from 'simplex-noise';
+import { createNoise2D, createNoise3D } from 'simplex-noise';
 
-class EggYolkVisualizer {
-    constructor() {
-        this.scene = null;
-        this.camera = null;
-        this.renderer = null;
-        this.controls = null;
-        this.gui = null;
-        
-        // Particle system
-        this.particleGroup = null;
-        this.particleGeometry = null;
-        this.particleMaterial = null;
-        this.particlePoints = null;
-        this.raycastTarget = null;
-        
-        // Physics arrays
-        this.basePositions = null;
-        this.positions = null;
-        this.velocities = null;
-        this.particleCount = 15000;
-        
-        // Physics parameters
-        this.springK = 2.0;
-        this.damping = 1.2;
-        this.noiseStrength = 0.8;
-        this.flowSpeed = 1.0;
-        this.pushStrength = 70;
-        this.sigma = 0.45;
-        
-        // Animation
-        this.clock = new THREE.Clock();
-        this.rotationSpeed = 0.05;
-        this.time = 0;
-        
-        // Noise
-        this.noise3D = createNoise3D();
-        
-        // Settings
-        this.settings = {
-            particleCount: 15000,
-            radius: 120,
-            viewMode: 'volume',
-            mixRatio: 0.5,
-            rotationSpeed: 0.05,
-            particleSize: 2,
-            noiseStrength: 0.8,
-            noiseScale: 0.01,
-            flowSpeed: 1.0,
-            viscosity: 0.0,
-            pushStrength: 70,
-            spread: 0.45,
-            maxInfluenceAngle: Math.PI,
-            viewBias: 0.7,
-            color: '#ffd700',
-            backgroundColor: '#0a0a0a'
-        };
-        
-        this.init();
-    }
-    
-    init() {
-        this.setupScene();
-        this.setupCamera();
-        this.setupRenderer();
-        this.setupControls();
-        this.setupParticleSystem();
-        this.setupGUI();
-        this.setupEventListeners();
-        this.animate();
-        
-        // Hide loading
-        document.getElementById('loading').classList.add('hidden');
-    }
-    
-    setupScene() {
-        this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(this.settings.backgroundColor);
-    }
-    
-    setupCamera() {
-        this.camera = new THREE.PerspectiveCamera(
-            75,
-            window.innerWidth / window.innerHeight,
-            0.1,
-            1000
-        );
-        this.camera.position.set(0, 0, 300);
-    }
-    
-    setupRenderer() {
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.renderer.setClearColor(this.settings.backgroundColor);
-        
-        const container = document.getElementById('canvas-container');
-        container.appendChild(this.renderer.domElement);
-    }
-    
-    setupControls() {
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.enableAutoRotate = false;
-        this.controls.enablePan = false;
-        this.controls.minDistance = 100;
-        this.controls.maxDistance = 500;
-    }
-    
-    setupParticleSystem() {
-        // Create particle group
-        this.particleGroup = new THREE.Group();
-        this.scene.add(this.particleGroup);
-        
-        // Create raycast target (invisible sphere)
-        const targetGeometry = new THREE.SphereGeometry(this.settings.radius, 32, 32);
-        const targetMaterial = new THREE.MeshBasicMaterial({ 
-            visible: false,
-            transparent: true,
-            opacity: 0
-        });
-        this.raycastTarget = new THREE.Mesh(targetGeometry, targetMaterial);
-        this.particleGroup.add(this.raycastTarget);
-        
-        // Initialize particle arrays
-        this.initializeParticles();
-        
-        // Create particle geometry
-        this.particleGeometry = new THREE.BufferGeometry();
-        this.particleGeometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
-        
-        // Create particle material
-        this.particleMaterial = new THREE.PointsMaterial({
-            color: this.settings.color,
-            size: this.settings.particleSize,
-            sizeAttenuation: false,
-            depthWrite: false,
-            transparent: true,
-            opacity: 0.8
-        });
-        
-        // Create particle points
-        this.particlePoints = new THREE.Points(this.particleGeometry, this.particleMaterial);
-        this.particleGroup.add(this.particlePoints);
-    }
-    
-    initializeParticles() {
-        this.particleCount = this.settings.particleCount;
-        
-        // Initialize arrays
-        this.basePositions = new Float32Array(this.particleCount * 3);
-        this.positions = new Float32Array(this.particleCount * 3);
-        this.velocities = new Float32Array(this.particleCount * 3);
-        
-        // Generate particle positions based on view mode
-        for (let i = 0; i < this.particleCount; i++) {
-            const index = i * 3;
-            
-            // Generate random direction
-            const theta = Math.acos(2 * Math.random() - 1);
-            const phi = 2 * Math.PI * Math.random();
-            
-            // Calculate radius based on view mode
-            let radius = this.settings.radius;
-            
-            switch (this.settings.viewMode) {
-                case 'surface':
-                    radius = this.settings.radius;
-                    break;
-                case 'volume':
-                    radius = this.settings.radius * Math.pow(Math.random(), 1/3);
-                    break;
-                case 'mix':
-                    const volumeRadius = this.settings.radius * Math.pow(Math.random(), 1/3);
-                    const surfaceRadius = this.settings.radius;
-                    radius = volumeRadius * (1 - this.settings.mixRatio) + surfaceRadius * this.settings.mixRatio;
-                    break;
-            }
-            
-            // Calculate position
-            const x = radius * Math.sin(theta) * Math.cos(phi);
-            const y = radius * Math.sin(theta) * Math.sin(phi);
-            const z = radius * Math.cos(theta);
-            
-            // Set base and current positions
-            this.basePositions[index] = x;
-            this.basePositions[index + 1] = y;
-            this.basePositions[index + 2] = z;
-            
-            this.positions[index] = x;
-            this.positions[index + 1] = y;
-            this.positions[index + 2] = z;
-            
-            // Initialize velocities to zero
-            this.velocities[index] = 0;
-            this.velocities[index + 1] = 0;
-            this.velocities[index + 2] = 0;
-        }
-        
-        // Update geometry
-        this.updateParticleGeometry();
-    }
-    
-    updateParticleGeometry() {
-        if (this.particleGeometry) {
-            this.particleGeometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
-            this.particleGeometry.attributes.position.needsUpdate = true;
-        }
-    }
-    
-    setupGUI() {
-        this.gui = new GUI();
-        
-        // Yolk Properties
-        const yolkFolder = this.gui.addFolder('🥚 Yolk Properties');
-        yolkFolder.add(this.settings, 'particleCount', 10000, 60000, 1000)
-            .name('Particle Count')
-            .onChange(() => this.initializeParticles());
-        
-        yolkFolder.add(this.settings, 'radius', 50, 200, 5)
-            .name('Radius')
-            .onChange(() => this.updateRadius());
-        
-        yolkFolder.add(this.settings, 'viewMode', ['volume', 'surface', 'mix'])
-            .name('View Mode')
-            .onChange(() => this.initializeParticles());
-        
-        yolkFolder.add(this.settings, 'mixRatio', 0, 1, 0.01)
-            .name('Mix Ratio')
-            .onChange(() => this.initializeParticles());
-        
-        // Animation
-        const animFolder = this.gui.addFolder('🔄 Animation');
-        animFolder.add(this.settings, 'rotationSpeed', 0, 0.2, 0.01)
-            .name('Rotation Speed');
-        
-        animFolder.add(this.settings, 'particleSize', 1, 3, 0.5)
-            .name('Particle Size')
-            .onChange(() => {
-                this.particleMaterial.size = this.settings.particleSize;
-            });
-        
-        // Physics
-        const physicsFolder = this.gui.addFolder('💧 Physics');
-        physicsFolder.add(this.settings, 'noiseStrength', 0, 2, 0.1)
-            .name('Noise Strength');
-        
-        physicsFolder.add(this.settings, 'noiseScale', 0.001, 0.1, 0.001)
-            .name('Noise Scale');
-        
-        physicsFolder.add(this.settings, 'flowSpeed', 0, 3, 0.1)
-            .name('Flow Speed');
-        
-        physicsFolder.add(this.settings, 'viscosity', 0, 1, 0.01)
-            .name('Viscosity')
-            .onChange(() => this.updateViscosity());
-        
-        // Interaction
-        const interactionFolder = this.gui.addFolder('👆 Interaction');
-        interactionFolder.add(this.settings, 'pushStrength', 10, 200, 5)
-            .name('Push Strength');
-        
-        interactionFolder.add(this.settings, 'spread', 0.1, 2, 0.05)
-            .name('Spread (σ)');
-        
-        interactionFolder.add(this.settings, 'maxInfluenceAngle', 0, Math.PI, 0.1)
-            .name('Max Influence Angle');
-        
-        interactionFolder.add(this.settings, 'viewBias', 0, 1, 0.05)
-            .name('View Bias');
-        
-        // Appearance
-        const appearanceFolder = this.gui.addFolder('🎨 Appearance');
-        appearanceFolder.addColor(this.settings, 'color')
-            .name('Particle Color')
-            .onChange(() => {
-                this.particleMaterial.color.setHex(this.settings.color.replace('#', '0x'));
-            });
-        
-        appearanceFolder.addColor(this.settings, 'backgroundColor')
-            .name('Background Color')
-            .onChange(() => {
-                this.scene.background.setHex(this.settings.backgroundColor.replace('#', '0x'));
-                this.renderer.setClearColor(this.settings.backgroundColor);
-            });
-        
-        // Reset button
-        this.gui.add({
-            reset: () => this.resetParticles()
-        }, 'reset').name('🔄 Reset Particles');
-    }
-    
-    updateRadius() {
-        // Update raycast target
-        this.raycastTarget.geometry.dispose();
-        this.raycastTarget.geometry = new THREE.SphereGeometry(this.settings.radius, 32, 32);
-        
-        // Scale existing particles
-        const scale = this.settings.radius / 120; // Assuming 120 was original radius
-        for (let i = 0; i < this.particleCount; i++) {
-            const index = i * 3;
-            this.basePositions[index] *= scale;
-            this.basePositions[index + 1] *= scale;
-            this.basePositions[index + 2] *= scale;
-            this.positions[index] *= scale;
-            this.positions[index + 1] *= scale;
-            this.positions[index + 2] *= scale;
-        }
-        
-        this.updateParticleGeometry();
-    }
-    
-    updateViscosity() {
-        const params = this.viscosityToParams(this.settings.viscosity);
-        this.springK = params.springK;
-        this.damping = params.damping;
-        this.noiseStrength = params.noiseStrength;
-        this.flowSpeed = params.flowSpeed;
-        this.pushStrength = params.pushStrength;
-        this.sigma = params.sigma;
-        
-        // Update GUI values
-        this.gui.controllers.forEach(controller => {
-            if (controller.property === 'noiseStrength') controller.setValue(params.noiseStrength);
-            if (controller.property === 'flowSpeed') controller.setValue(params.flowSpeed);
-            if (controller.property === 'pushStrength') controller.setValue(params.pushStrength);
-            if (controller.property === 'spread') controller.setValue(params.sigma);
-        });
-    }
-    
-    viscosityToParams(doneness) {
-        // Map viscosity slider (0-1) to physics parameters
-        // 0 = liquid/runny (longer paths), 1 = hard-boiled/firm (shorter paths)
-        
-        if (doneness <= 0.5) {
-            // Liquid to medium
-            const t = doneness * 2; // 0 to 1
-            return {
-                springK: 1.0 + (t * 2.5), // 1.0 to 3.5 (softer springs for liquid = longer paths)
-                damping: 0.5 + (t * 1.7), // 0.5 to 2.2 (less damping for liquid = longer paths)
-                noiseStrength: 1.8 - (t * 1.35), // 1.8 to 0.45 (more noise for liquid = longer paths)
-                flowSpeed: 2.5 - (t * 1.9), // 2.5 to 0.6 (faster flow for liquid = longer paths)
-                pushStrength: 100 - (t * 60), // 100 to 40 (stronger push for liquid = longer paths)
-                sigma: 0.3 + (t * 0.3) // 0.3 to 0.6 (wider spread for liquid = longer paths)
-            };
-        } else {
-            // Medium to hard-boiled
-            const t = (doneness - 0.5) * 2; // 0 to 1
-            return {
-                springK: 3.5 + (t * 3.5), // 3.5 to 7.0
-                damping: 2.2 + (t * 2.3), // 2.2 to 4.5
-                noiseStrength: 0.45 - (t * 0.39), // 0.45 to 0.06
-                flowSpeed: 0.6 - (t * 0.45), // 0.6 to 0.15
-                pushStrength: 40 - (t * 30), // 40 to 10
-                sigma: 0.6 + (t * 0.3) // 0.6 to 0.9
-            };
-        }
-    }
-    
-    setupEventListeners() {
-        // Pointer events
-        this.renderer.domElement.addEventListener('pointerdown', (event) => this.handlePointerDown(event));
-        this.renderer.domElement.addEventListener('touchstart', (event) => this.handleTouchStart(event));
-        
-        // Window resize
-        window.addEventListener('resize', () => this.handleResize());
-    }
-    
-    handlePointerDown(event) {
-        event.preventDefault();
-        this.handleInteraction(event.clientX, event.clientY);
-    }
-    
-    handleTouchStart(event) {
-        event.preventDefault();
-        if (event.touches.length > 0) {
-            const touch = event.touches[0];
-            this.handleInteraction(touch.clientX, touch.clientY);
-        }
-    }
-    
-    handleInteraction(clientX, clientY) {
-        // Convert screen coordinates to normalized device coordinates
-        const rect = this.renderer.domElement.getBoundingClientRect();
-        const x = ((clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -((clientY - rect.top) / rect.height) * 2 + 1;
-        
-        console.log('Touch detected at:', clientX, clientY, 'NDC:', x, y);
-        
-        // Create raycaster
-        const raycaster = new THREE.Raycaster();
-        raycaster.setFromCamera({ x, y }, this.camera);
-        
-        // Raycast against the target sphere
-        const intersects = raycaster.intersectObject(this.raycastTarget);
-        
-        console.log('Intersects:', intersects.length, 'Target visible:', this.raycastTarget.visible);
-        
-        if (intersects.length > 0) {
-            const hit = intersects[0];
-            console.log('Hit point:', hit.point);
-            
-            // Transform hit point to group-local space
-            const hitWorld = hit.point.clone();
-            const hitLocal = hitWorld.clone().applyMatrix4(this.particleGroup.matrixWorld.clone().invert());
-            
-            // Transform camera to group-local space
-            const camWorld = this.camera.position.clone();
-            const camLocal = camWorld.clone().applyMatrix4(this.particleGroup.matrixWorld.clone().invert());
-            
-            // Calculate surface normal at hit point
-            const nh = hitLocal.clone().normalize();
-            
-            // Calculate view direction (from camera to hit)
-            const viewDir = hitLocal.clone().sub(camLocal).normalize();
-            
-            // Front-half filter: ignore back-face hits
-            if (nh.dot(viewDir) <= 0) {
-                console.log('Back face hit, ignoring');
-                return; // Back face hit, ignore
-            }
-            
-            console.log('Applying impulse at:', hitLocal, 'normal:', nh);
-            
-            // Apply impulse to particles
-            this.applyImpulse(hitLocal, nh, viewDir);
-        } else {
-            console.log('No intersection with sphere');
-        }
-    }
-    
-    applyImpulse(hitLocal, nh, viewDir) {
-        for (let i = 0; i < this.particleCount; i++) {
-            const index = i * 3;
-            
-            // Get particle base position
-            const baseX = this.basePositions[index];
-            const baseY = this.basePositions[index + 1];
-            const baseZ = this.basePositions[index + 2];
-            
-            // Calculate particle normal (direction from center)
-            const particleNormal = new THREE.Vector3(baseX, baseY, baseZ).normalize();
-            
-            // Calculate angular distance to epicenter
-            const dotProduct = particleNormal.dot(nh);
-            const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct)));
-            
-            // Check if particle is within influence
-            if (angle > this.settings.maxInfluenceAngle) {
-                continue;
-            }
-            
-            // Calculate weight (Gaussian on sphere)
-            const weight = Math.exp(-Math.pow(angle / this.settings.sigma, 2));
-            
-            // Calculate impulse direction with perspective
-            const impulseDir = new THREE.Vector3()
-                .addScaledVector(viewDir, this.settings.viewBias)
-                .addScaledVector(particleNormal, 1 - this.settings.viewBias)
-                .normalize();
-            
-            // Apply impulse
-            const impulse = this.settings.pushStrength * weight;
-            this.velocities[index] += impulseDir.x * impulse;
-            this.velocities[index + 1] += impulseDir.y * impulse;
-            this.velocities[index + 2] += impulseDir.z * impulse;
-        }
-    }
-    
-    updatePhysics(deltaTime) {
-        // Clamp delta time
-        const dt = Math.min(deltaTime, 0.033);
-        
-        for (let i = 0; i < this.particleCount; i++) {
-            const index = i * 3;
-            
-            // Get current values
-            const x = this.positions[index];
-            const y = this.positions[index + 1];
-            const z = this.positions[index + 2];
-            
-            const baseX = this.basePositions[index];
-            const baseY = this.basePositions[index + 1];
-            const baseZ = this.basePositions[index + 2];
-            
-            // Spring force back to base position
-            const springX = (baseX - x) * this.springK;
-            const springY = (baseY - y) * this.springK;
-            const springZ = (baseZ - z) * this.springK;
-            
-            // Damping force
-            const dampX = -this.velocities[index] * this.damping;
-            const dampY = -this.velocities[index + 1] * this.damping;
-            const dampZ = -this.velocities[index + 2] * this.damping;
-            
-            // Noise force (coherent drift)
-            const noiseX = this.noise3D(
-                baseX * this.settings.noiseScale,
-                baseY * this.settings.noiseScale,
-                (baseZ * this.settings.noiseScale) + (this.time * this.settings.flowSpeed)
-            ) * this.settings.noiseStrength;
-            
-            const noiseY = this.noise3D(
-                (baseX * this.settings.noiseScale) + 1000,
-                (baseY * this.settings.noiseScale) + 1000,
-                (baseZ * this.settings.noiseScale) + (this.time * this.settings.flowSpeed)
-            ) * this.settings.noiseStrength;
-            
-            const noiseZ = this.noise3D(
-                (baseX * this.settings.noiseScale) + 2000,
-                (baseY * this.settings.noiseScale) + 2000,
-                (baseZ * this.settings.noiseScale) + (this.time * this.settings.flowSpeed)
-            ) * this.settings.noiseStrength;
-            
-            // Apply forces
-            this.velocities[index] += (springX + dampX + noiseX) * dt;
-            this.velocities[index + 1] += (springY + dampY + noiseY) * dt;
-            this.velocities[index + 2] += (springZ + dampZ + noiseZ) * dt;
-            
-            // Update position
-            this.positions[index] += this.velocities[index] * dt;
-            this.positions[index + 1] += this.velocities[index + 1] * dt;
-            this.positions[index + 2] += this.velocities[index + 2] * dt;
-            
-            // Keep particles within sphere bounds
-            const distance = Math.sqrt(
-                Math.pow(this.positions[index], 2) +
-                Math.pow(this.positions[index + 1], 2) +
-                Math.pow(this.positions[index + 2], 2)
-            );
-            
-            if (distance > this.settings.radius) {
-                const scale = this.settings.radius / distance;
-                this.positions[index] *= scale;
-                this.positions[index + 1] *= scale;
-                this.positions[index + 2] *= scale;
-                
-                // Bounce back
-                this.velocities[index] *= -0.5;
-                this.velocities[index + 1] *= -0.5;
-                this.velocities[index + 2] *= -0.5;
-            }
-        }
-        
-        // Update geometry
-        this.updateParticleGeometry();
-    }
-    
-    resetParticles() {
-        // Reset all particles to base positions
-        for (let i = 0; i < this.particleCount; i++) {
-            const index = i * 3;
-            this.positions[index] = this.basePositions[index];
-            this.positions[index + 1] = this.basePositions[index + 1];
-            this.positions[index + 2] = this.basePositions[index + 2];
-            this.velocities[index] = 0;
-            this.velocities[index + 1] = 0;
-            this.velocities[index + 2] = 0;
-        }
-        
-        this.updateParticleGeometry();
-    }
-    
-    handleResize() {
-        const width = window.innerWidth;
-        const height = window.innerHeight;
-        
-        this.camera.aspect = width / height;
-        this.camera.updateProjectionMatrix();
-        
-        this.renderer.setSize(width, height);
-    }
-    
-    animate() {
-        requestAnimationFrame(() => this.animate());
-        
-        const deltaTime = this.clock.getDelta();
-        this.time += deltaTime;
-        
-        // Update physics
-        this.updatePhysics(deltaTime);
-        
-        // Rotate particle group
-        this.particleGroup.rotation.y += this.settings.rotationSpeed * deltaTime;
-        
-        // Update controls
-        this.controls.update();
-        
-        // Render
-        this.renderer.render(this.scene, this.camera);
-    }
+// Configuration object for all parameters
+const config = {
+  // Particle properties
+  particleSize: 1,
+  particleCount: 15000,
+  
+  // Sphere properties
+  sphereRadius: 50,
+  
+  // Distribution
+  distribution: 'volume', // 'surface' or 'volume'
+  
+  // Animation properties
+  dispersion: 0,
+  flowSpeed: 0.5,
+  noiseStrength: 1,
+  noiseScale: 1,
+  rotationSpeed: 0.5,
+  
+  // Randomness per axis
+  randomnessX: 1,
+  randomnessY: 1,
+  randomnessZ: 1,
+  
+  // Seed for noise and particle placement
+  seed: 0,
+  
+  // Colors
+  particleColor: '#ffffff',
+  backgroundColor: '#000000'
+};
+
+// Global variables
+let scene, camera, renderer, controls;
+let particleSystem, basePositions, currentPositions;
+let noise2D, noise3D;
+let gui;
+let clock = new THREE.Clock();
+
+// Initialize the application
+function init() {
+  setupScene();
+  setupCamera();
+  setupRenderer();
+  setupControls();
+  setupGUI();
+  createParticleSystem();
+  animate();
 }
 
-// Initialize when page loads
-window.addEventListener('load', () => {
-    new EggYolkVisualizer();
-});
+// Setup Three.js scene
+function setupScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(config.backgroundColor);
+}
+
+// Setup camera with responsive positioning
+function setupCamera() {
+  camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+  );
+  camera.position.set(0, 0, 150);
+}
+
+// Setup renderer with high-DPI support
+function setupRenderer() {
+  renderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    powerPreference: "high-performance"
+  });
+  
+  // High-DPI support capped at 2
+  const pixelRatio = Math.min(window.devicePixelRatio, 2);
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+}
+
+// Setup orbit controls
+function setupControls() {
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.screenSpacePanning = false;
+  controls.minDistance = 50;
+  controls.maxDistance = 300;
+}
+
+// Setup GUI controls
+function setupGUI() {
+  gui = new GUI();
+  
+  // Particle properties
+  const particleFolder = gui.addFolder('Particle Properties');
+  particleFolder.add(config, 'particleSize', 0.1, 5, 0.1).onChange(updateParticleMaterial);
+  particleFolder.add(config, 'particleCount', 1000, 50000, 1000).onChange(rebuildParticleSystem);
+  particleFolder.addColor(config, 'particleColor').onChange(updateParticleMaterial);
+  
+  // Sphere properties
+  const sphereFolder = gui.addFolder('Sphere Properties');
+  sphereFolder.add(config, 'sphereRadius', 10, 100, 1).onChange(rebuildParticleSystem);
+  sphereFolder.add(config, 'distribution', ['surface', 'volume']).onChange(rebuildParticleSystem);
+  
+  // Animation properties
+  const animationFolder = gui.addFolder('Animation Properties');
+  animationFolder.add(config, 'dispersion', 0, 20, 0.1);
+  animationFolder.add(config, 'flowSpeed', 0, 2, 0.01);
+  animationFolder.add(config, 'noiseStrength', 0, 5, 0.1);
+  animationFolder.add(config, 'noiseScale', 0.1, 5, 0.1);
+  animationFolder.add(config, 'rotationSpeed', 0, 2, 0.01);
+  
+  // Randomness per axis
+  const randomnessFolder = gui.addFolder('Randomness per Axis');
+  randomnessFolder.add(config, 'randomnessX', 0, 2, 0.1);
+  randomnessFolder.add(config, 'randomnessY', 0, 2, 0.1);
+  randomnessFolder.add(config, 'randomnessZ', 0, 2, 0.1);
+  
+  // Seed
+  gui.add(config, 'seed', 0, 1000, 1).onChange(() => {
+    updateSeed();
+    rebuildParticleSystem();
+  });
+  
+  // Background color
+  gui.addColor(config, 'backgroundColor').onChange((color) => {
+    scene.background.setHex(color);
+  });
+  
+  // Reset button
+  gui.add({ reset: () => resetToDefaults() }, 'reset').name('Reset to Defaults');
+}
+
+// Create particle system
+function createParticleSystem() {
+  // Create noise functions
+  updateSeed();
+  
+  // Generate base positions
+  generateBasePositions();
+  
+  // Create geometry
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(currentPositions, 3));
+  
+  // Create material with 1px screen-space particles
+  const material = new THREE.PointsMaterial({
+    size: config.particleSize,
+    sizeAttenuation: false, // Keep particles 1px in screen space
+    color: config.particleColor,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending
+  });
+  
+  // Create points system
+  particleSystem = new THREE.Points(geometry, material);
+  scene.add(particleSystem);
+}
+
+// Generate base positions for particles
+function generateBasePositions() {
+  const positions = [];
+  basePositions = [];
+  
+  for (let i = 0; i < config.particleCount; i++) {
+    let x, y, z;
+    
+    if (config.distribution === 'surface') {
+      // Surface distribution: r = R
+      const phi = Math.acos(2 * Math.random() - 1); // Latitude (0 to π)
+      const theta = 2 * Math.PI * Math.random(); // Longitude (0 to 2π)
+      
+      x = config.sphereRadius * Math.sin(phi) * Math.cos(theta);
+      y = config.sphereRadius * Math.sin(phi) * Math.sin(theta);
+      z = config.sphereRadius * Math.cos(phi);
+    } else {
+      // Volume distribution: r = R * u^(1/3)
+      const phi = Math.acos(2 * Math.random() - 1);
+      const theta = 2 * Math.PI * Math.random();
+      const r = config.sphereRadius * Math.pow(Math.random(), 1/3);
+      
+      x = r * Math.sin(phi) * Math.cos(theta);
+      y = r * Math.sin(phi) * Math.sin(theta);
+      z = r * Math.cos(phi);
+    }
+    
+    basePositions.push(x, y, z);
+    positions.push(x, y, z);
+  }
+  
+  currentPositions = new Float32Array(positions);
+}
+
+// Update seed for noise functions
+function updateSeed() {
+  noise2D = createNoise2D(() => config.seed);
+  noise3D = createNoise3D(() => config.seed);
+}
+
+// Update particle positions with noise
+function updateParticlePositions(time) {
+  const positions = particleSystem.geometry.attributes.position.array;
+  
+  for (let i = 0; i < config.particleCount; i++) {
+    const baseIndex = i * 3;
+    const baseX = basePositions[baseIndex];
+    const baseY = basePositions[baseIndex + 1];
+    const baseZ = basePositions[baseIndex + 2];
+    
+    // Calculate noise offsets
+    const noiseX = noise3D(
+      baseX * config.noiseScale * 0.01 + time * config.flowSpeed,
+      baseY * config.noiseScale * 0.01 + time * config.flowSpeed * 0.7,
+      baseZ * config.noiseScale * 0.01 + time * config.flowSpeed * 1.3
+    );
+    
+    const noiseY = noise3D(
+      baseX * config.noiseScale * 0.01 + time * config.flowSpeed * 1.1,
+      baseY * config.noiseScale * 0.01 + time * config.flowSpeed,
+      baseZ * config.noiseScale * 0.01 + time * config.flowSpeed * 0.9
+    );
+    
+    const noiseZ = noise3D(
+      baseX * config.noiseScale * 0.01 + time * config.flowSpeed * 0.8,
+      baseY * config.noiseScale * 0.01 + time * config.flowSpeed * 1.2,
+      baseZ * config.noiseScale * 0.01 + time * config.flowSpeed
+    );
+    
+    // Apply noise with per-axis randomness
+    const offsetX = noiseX * config.noiseStrength * config.randomnessX;
+    const offsetY = noiseY * config.noiseStrength * config.randomnessY;
+    const offsetZ = noiseZ * config.noiseStrength * config.randomnessZ;
+    
+    // Calculate final position with dispersion
+    const distance = Math.sqrt(baseX * baseX + baseY * baseY + baseZ * baseZ);
+    const dispersionFactor = distance / config.sphereRadius;
+    
+    positions[baseIndex] = baseX + offsetX + (baseX / distance) * config.dispersion * dispersionFactor;
+    positions[baseIndex + 1] = baseY + offsetY + (baseY / distance) * config.dispersion * dispersionFactor;
+    positions[baseIndex + 2] = baseZ + offsetZ + (baseZ / distance) * config.dispersion * dispersionFactor;
+  }
+  
+  particleSystem.geometry.attributes.position.needsUpdate = true;
+}
+
+// Update particle material
+function updateParticleMaterial() {
+  if (particleSystem) {
+    particleSystem.material.size = config.particleSize;
+    particleSystem.material.color.setHex(config.particleColor);
+  }
+}
+
+// Rebuild particle system
+function rebuildParticleSystem() {
+  if (particleSystem) {
+    scene.remove(particleSystem);
+    particleSystem.geometry.dispose();
+    particleSystem.material.dispose();
+  }
+  createParticleSystem();
+}
+
+// Reset to default values
+function resetToDefaults() {
+  config.particleSize = 1;
+  config.particleCount = 15000;
+  config.sphereRadius = 50;
+  config.distribution = 'volume';
+  config.dispersion = 0;
+  config.flowSpeed = 0.5;
+  config.noiseStrength = 1;
+  config.noiseScale = 1;
+  config.rotationSpeed = 0.5;
+  config.randomnessX = 1;
+  config.randomnessY = 1;
+  config.randomnessZ = 1;
+  config.seed = 0;
+  config.particleColor = '#ffffff';
+  config.backgroundColor = '#000000';
+  
+  gui.controllers.forEach(controller => controller.updateDisplay());
+  
+  scene.background.setHex(config.backgroundColor);
+  rebuildParticleSystem();
+}
+
+// Handle window resize
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+// Animation loop
+function animate() {
+  requestAnimationFrame(animate);
+  
+  const time = clock.getElapsedTime();
+  
+  // Update particle positions
+  updateParticlePositions(time);
+  
+  // Apply rotation to the entire particle system
+  particleSystem.rotation.y = time * config.rotationSpeed;
+  
+  // Update controls
+  controls.update();
+  
+  // Render
+  renderer.render(scene, camera);
+}
+
+// Event listeners
+window.addEventListener('resize', onWindowResize);
+
+// Initialize the application
+init();

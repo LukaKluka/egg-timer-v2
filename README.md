@@ -1,131 +1,115 @@
-# 🥚 3D Egg Yolk - Liquid to Hard-boiled Visualization
+# Interactive Particle Sphere 🌟
 
-A Three.js-based interactive 3D particle visualization that simulates an egg yolk with realistic liquid physics. Watch as particles behave like they're inside a liquid-filled sphere, with a viscosity slider that transforms the behavior from runny (liquid) to firm (hard-boiled).
+An advanced interactive 3D particle sphere built with vanilla JavaScript and HTML5 Canvas. Features physics-based interactions, real-time controls, and smooth animations.
 
 ## ✨ Features
 
-- **🌊 Liquid Physics**: Realistic particle movement with spring-damper forces
-- **🎛️ Viscosity Control**: Morph from liquid (runny) to hard-boiled (firm) with a single slider
-- **👆 Touch Interaction**: Click/touch the yolk surface to push particles into perspective
-- **🔄 Auto-Rotation**: Slow, natural sphere rotation
-- **🎮 Manual Control**: OrbitControls for camera manipulation
-- **📊 View Modes**: Volume, Surface, or Mixed particle distribution
-- **🎨 Customizable**: Full GUI controls for all parameters
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
-
-### Installation
-
-1. **Clone and install dependencies:**
-```bash
-git clone <repository-url>
-cd egg-yolk-3d
-npm install
-```
-
-2. **Start development server:**
-```bash
-npm run dev
-```
-
-3. **Open in browser:**
-Navigate to `http://localhost:5173`
-
-### Build for Production
-
-```bash
-npm run build
-npm run preview
-```
+- **🎯 Interactive Physics**: Click anywhere on the sphere to apply localized impulses
+- **🔄 Continuous Rotation**: Smooth auto-rotation with manual drag controls
+- **⚙️ Real-time Controls**: Adjust particle count, size, physics parameters, and more
+- **🎨 Customizable**: Change colors, distribution, noise effects, and physics behavior
+- **📱 Responsive**: Works on desktop and mobile devices
+- **🚀 Performance**: Optimized 2D canvas rendering with 3D perspective
 
 ## 🎮 Controls
 
-### **🥚 Yolk Properties**
-- **Particle Count**: 10k-60k particles (default: 15k)
-- **Radius**: Sphere size (50-200, default: 120)
-- **View Mode**: Volume, Surface, or Mixed distribution
-- **Mix Ratio**: Blend between volume and surface (0-1)
+### Physics Settings
+- **Push Strength**: How strongly particles are pushed when clicked
+- **Sigma (Spread)**: How far the impulse effect spreads
+- **Spring K**: How quickly particles return to their base positions
+- **Damping**: How much velocity is reduced each frame
+- **Max Influence Angle**: Maximum angle for impulse influence
 
-### **🔄 Animation**
-- **Rotation Speed**: Auto-rotation speed (0-0.2 rad/s)
-- **Particle Size**: Screen-space particle size (1-3px)
+### Visual Settings
+- **Particle Count**: Number of particles (100-2000)
+- **Particle Size**: Size of each particle in pixels
+- **Sphere Radius**: Size of the particle sphere
+- **Rotation Speed**: Speed of automatic rotation
+- **Noise Strength**: Intensity of particle movement
+- **Flow Speed**: Speed of noise-based particle flow
+- **Distribution**: Surface, volume, or mixed particle placement
+- **Colors**: Customize particle and background colors
 
-### **💧 Physics**
-- **Noise Strength**: Random movement intensity (0-2)
-- **Noise Scale**: Spatial frequency of movement (0.001-0.1)
-- **Flow Speed**: Time speed of noise flow (0-3)
-- **Viscosity**: **Main control** - transforms from liquid (0) to hard-boiled (1)
+## 🚀 Quick Start
 
-### **👆 Interaction**
-- **Push Strength**: Force of touch interaction (10-200)
-- **Spread (σ)**: How far touch effect spreads (0.1-2)
-- **Max Influence Angle**: Maximum angle for touch effect (0-π)
-- **View Bias**: Blend between perspective and normal direction (0-1)
+### Option 1: Direct Access
+Visit the live demo: [Interactive Particle Sphere](https://your-username.github.io/egg-timer-v2/sphere-standalone-fixed.html)
 
-### **🎨 Appearance**
-- **Particle Color**: Customize yolk color
-- **Background Color**: Change scene background
+### Option 2: Local Development
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/egg-timer-v2.git
+   cd egg-timer-v2
+   ```
 
-## 🔬 Physics Model
+2. Open in your browser:
+   - **Main app**: `index.html`
+   - **Standalone sphere**: `sphere-standalone-fixed.html`
+   - **Simple sphere**: `sphere-simple.html`
 
-The visualization uses a sophisticated physics engine with:
+3. Or run with a local server:
+   ```bash
+   python3 -m http.server 8000
+   # Then visit http://localhost:8000
+   ```
 
-- **Spring-Damper System**: Particles return to base positions with configurable stiffness
-- **Noise Flow**: Coherent random movement for organic liquid behavior
-- **Viscosity Mapping**: Single slider controls multiple physics parameters:
-  - **Liquid (0.0)**: springK=2.0, damping=1.2, noiseStrength=0.8
-  - **Medium (0.5)**: springK=3.5, damping=2.2, noiseStrength=0.45
-  - **Hard-boiled (1.0)**: springK=7.0, damping=4.5, noiseStrength=0.06
+## 🎯 How to Use
 
-## 🎯 Interaction Details
+1. **Watch the sphere rotate** automatically
+2. **Click anywhere on the sphere** to push particles away
+3. **Drag to rotate** the sphere manually
+4. **Adjust controls** in real-time to see immediate effects
+5. **Reset physics** to return particles to their original positions
 
-- **Touch Detection**: Only works on the front half of the sphere
-- **Raycasting**: Uses invisible target sphere for accurate hit detection
-- **Impulse System**: Particles near touch point receive force pushing into perspective
-- **Gaussian Falloff**: Touch effect decreases with angular distance from epicenter
+## 🔧 Technical Details
 
-## 🛠️ Technical Details
+- **Rendering**: HTML5 Canvas with 2D context
+- **3D Simulation**: Custom 3D math with perspective projection
+- **Physics**: Spring-damper system with impulse forces
+- **Interaction**: Custom raycaster for accurate sphere clicking
+- **Animation**: RequestAnimationFrame with fixed timestep
+- **Noise**: Custom Perlin noise implementation
 
-- **Three.js**: 3D graphics and rendering
-- **Simplex Noise**: Organic particle movement
-- **Float32Arrays**: Efficient particle data storage
-- **Euler Integration**: Physics simulation with clamped timestep
-- **High-DPI Support**: Capped at 2x for performance
+## 📁 File Structure
 
-## 📱 Performance Notes
-
-- **Particle Count**: 15k default, up to 60k for high-end devices
-- **Responsiveness**: Touch interaction optimized for smooth 60fps
-- **Memory**: Efficient buffer management with minimal allocations
+```
+egg-timer-v2/
+├── index.html                 # Main egg timer app
+├── sphere-standalone-fixed.html  # Advanced interactive sphere
+├── sphere-simple.html         # Simple particle sphere
+├── sphere-standalone.html     # Basic standalone version
+├── script.js                  # Main application logic
+├── style.css                  # Styling
+├── package.json               # Dependencies
+├── vite.config.js            # Vite configuration
+└── README.md                 # This file
+```
 
 ## 🎨 Customization
 
-The `viscosityToParams()` function maps the viscosity slider to all physics parameters, allowing for easy tuning of the liquid-to-solid transition. Modify this function to create custom viscosity curves or add new physics behaviors.
+The particle sphere is highly customizable through the GUI controls:
 
-## 🔧 Development
+- **Physics**: Adjust how particles respond to interactions
+- **Visual**: Change appearance and behavior
+- **Performance**: Balance particle count vs. smoothness
+- **Colors**: Match your design preferences
 
-### Project Structure
-```
-src/
-├── main.js          # Main application class
-├── index.html       # HTML entry point
-└── package.json     # Dependencies and scripts
-```
+## 🌟 Advanced Features
 
-### Key Classes
-- **EggYolkVisualizer**: Main application class
-- **Particle System**: Float32Array-based physics arrays
-- **Physics Engine**: Spring-damper with noise forces
-- **Interaction System**: Raycast-based touch detection
+- **Raycasting**: Accurate 3D sphere intersection detection
+- **Rotation Support**: Works correctly with rotated spheres
+- **Continuous Interaction**: Auto-rotation resumes after manual interaction
+- **Mobile Support**: Touch events for mobile devices
+- **High Performance**: Optimized for smooth 60fps animation
+
+## 🤝 Contributing
+
+Feel free to fork this project and submit pull requests for improvements!
 
 ## 📄 License
 
-MIT License - feel free to use and modify for your projects!
+This project is open source and available under the MIT License.
 
 ---
 
-**Enjoy exploring the physics of egg yolks! 🥚✨** 
+**Enjoy exploring the interactive particle sphere!** 🎉 

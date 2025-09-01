@@ -1,19 +1,19 @@
 {
-  "name": "egg-yolk-3d",
-  "version": "1.0.0",
-  "description": "3D Egg Yolk Particle Visualization with Liquid Physics",
+  "name": "interactive-particle-sphere",
+  "private": true,
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
   "dependencies": {
     "three": "^0.158.0",
     "lil-gui": "^0.19.1",
-    "simplex-noise": "^4.0.1"
-  },
-  "devDependencies": {
-    "vite": "^5.0.0"
+    "simplex-noise": "^4.0.0"
   }
 }
