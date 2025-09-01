@@ -649,7 +649,8 @@
                 
                 // Check if hit point is in front third of sphere (closer to camera)
                 console.log('Hit point Z:', hitPoint.z, 'Front third threshold:', this.settings.sphereRadius * 0.33);
-                if (hitPoint.z > this.settings.sphereRadius * 0.33) {
+                // Note: In our coordinate system, positive Z is closer to camera (front)
+                if (hitPoint.z < this.settings.sphereRadius * 0.33) {
                     console.log('Hit point too far back, rejecting');
                     return null; // Hit point is too far back, only allow front third
                 }
@@ -716,6 +717,8 @@
                         particle.velocityX += normalizedDirX * impulse;
                         particle.velocityY += normalizedDirY * impulse;
                         particle.velocityZ += normalizedDirZ * impulse;
+                        
+                        console.log('Applied impulse to particle:', impulse, 'weight:', weight, 'distance:', distance);
                     }
                 });
             }
