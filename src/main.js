@@ -390,6 +390,8 @@ class EggYolkVisualizer {
         const x = ((clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((clientY - rect.top) / rect.height) * 2 + 1;
         
+        console.log('Touch detected at:', clientX, clientY, 'NDC:', x, y);
+        
         // Create raycaster
         const raycaster = new THREE.Raycaster();
         raycaster.setFromCamera({ x, y }, this.camera);
@@ -397,8 +399,11 @@ class EggYolkVisualizer {
         // Raycast against the target sphere
         const intersects = raycaster.intersectObject(this.raycastTarget);
         
+        console.log('Intersects:', intersects.length, 'Target visible:', this.raycastTarget.visible);
+        
         if (intersects.length > 0) {
             const hit = intersects[0];
+            console.log('Hit point:', hit.point);
             
             // Transform hit point to group-local space
             const hitWorld = hit.point.clone();
@@ -416,11 +421,16 @@ class EggYolkVisualizer {
             
             // Front-half filter: ignore back-face hits
             if (nh.dot(viewDir) <= 0) {
+                console.log('Back face hit, ignoring');
                 return; // Back face hit, ignore
             }
             
+            console.log('Applying impulse at:', hitLocal, 'normal:', nh);
+            
             // Apply impulse to particles
             this.applyImpulse(hitLocal, nh, viewDir);
+        } else {
+            console.log('No intersection with sphere');
         }
     }
     
