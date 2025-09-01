@@ -209,6 +209,11 @@
             <label>Cohesion Range: <span id="cohesion-range-value">20</span></label>
             <input type="range" id="cohesion-range" min="5" max="50" value="20" step="1">
         </div>
+        
+        <div class="control-group checkbox-group">
+            <input type="checkbox" id="show-clickable-zone" checked>
+            <label for="show-clickable-zone">Show Clickable Zone</label>
+        </div>
     </div>
     
     <div class="controls">
@@ -281,7 +286,8 @@
                     // Fluid physics settings
                     fluidCohesion: 0.02, // How strongly particles attract each other
                     fluidViscosity: 0.85, // How quickly particles slow down
-                    cohesionRange: 20 // How far particles influence each other
+                    cohesionRange: 20, // How far particles influence each other
+                    showClickableZone: true // Show visual indicator of clickable area
                 };
                 
                 // Interaction state
@@ -493,6 +499,10 @@
                     this.updateDisplay();
                 });
                 
+                document.getElementById('show-clickable-zone').addEventListener('change', (e) => {
+                    this.settings.showClickableZone = e.target.checked;
+                });
+                
                 document.getElementById('distribution').addEventListener('change', (e) => {
                     this.settings.distribution = e.target.value;
                     this.initParticleSystem();
@@ -636,6 +646,11 @@
                 const tempHitY = hitPoint.y * cosX - hitPoint.z * sinX;
                 hitPoint.z = hitPoint.y * sinX + hitPoint.z * cosX;
                 hitPoint.y = tempHitY;
+                
+                // Check if hit point is in front third of sphere (closer to camera)
+                if (hitPoint.z > this.settings.sphereRadius * 0.33) {
+                    return null; // Hit point is too far back, only allow front third
+                }
                 
                 // Calculate surface normal (unit vector from center to hit point)
                 const normal = {
@@ -933,6 +948,30 @@
                     this.ctx.fill();
                     this.ctx.restore();
                 });
+                
+                // Draw clickable zone indicator (front third of sphere)
+                this.drawClickableZone();
+            }
+            
+            drawClickableZone() {
+                if (!this.settings.showClickableZone) return;
+                
+                // Draw a subtle outline to show the clickable area (front third)
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                
+                // Calculate the visible radius of the front third
+                const frontThirdRadius = this.settings.sphereRadius * 0.33;
+                const visibleRadius = Math.sqrt(this.settings.sphereRadius * this.settings.sphereRadius - frontThirdRadius * frontThirdRadius);
+                
+                this.ctx.save();
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                this.ctx.lineWidth = 1;
+                this.ctx.setLineDash([5, 5]);
+                this.ctx.beginPath();
+                this.ctx.arc(centerX, centerY, visibleRadius, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.restore();
             }
             
             animate(currentTime) {
@@ -1002,7 +1041,8 @@
                     enableNoise: false,
                     fluidCohesion: 0.02,
                     fluidViscosity: 0.85,
-                    cohesionRange: 20
+                    cohesionRange: 20,
+                    showClickableZone: true
                 };
                 
                 // Update all controls
@@ -1025,6 +1065,7 @@
                 document.getElementById('cohesion').value = this.settings.fluidCohesion;
                 document.getElementById('viscosity').value = this.settings.fluidViscosity;
                 document.getElementById('cohesion-range').value = this.settings.cohesionRange;
+                document.getElementById('show-clickable-zone').checked = this.settings.showClickableZone;
                 
                 document.getElementById('color-value').textContent = this.settings.particleColor;
                 document.getElementById('bg-value').textContent = this.settings.backgroundColor;
