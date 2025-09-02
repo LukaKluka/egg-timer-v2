@@ -343,8 +343,8 @@
                 // Touch/click effect properties
                 this.touchPoint = null;
                 this.touchForce = 0;
-                this.touchRadius = 60; // Desktop precision
-                this.touchRadiusMobile = 100; // Mobile needs larger radius
+                this.touchRadius = 80; // Desktop: balanced precision (was 60, but 80 was better)
+                this.touchRadiusMobile = 100; // Mobile: perfect as is, don't change
                 this.touchDecay = 0.98;
                 
                 this.setupEventListeners();
@@ -763,8 +763,8 @@
                                 const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
                                 repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
                             } else {
-                                // Desktop: sharper falloff for precision
-                                distanceFactor = Math.pow(1 - screenDistance / currentTouchRadius, 2);
+                                // Desktop: balanced falloff (less aggressive than before)
+                                distanceFactor = 1 - screenDistance / currentTouchRadius; // Linear like mobile, but with desktop radius
                                 const speedMultiplier = this.settings.touchSpeed;
                                 const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
                                 repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
