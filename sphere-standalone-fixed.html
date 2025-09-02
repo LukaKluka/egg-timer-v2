@@ -343,7 +343,7 @@
                 // Touch/click effect properties
                 this.touchPoint = null;
                 this.touchForce = 0;
-                this.touchRadius = 80; // Desktop: balanced precision (was 60, but 80 was better)
+                this.touchRadius = 100; // Desktop: restore to original working version
                 this.touchRadiusMobile = 100; // Mobile: perfect as is, don't change
                 this.touchDecay = 0.98;
                 
@@ -537,7 +537,7 @@
                             Math.pow(particleScreenY - touchScreenY, 2)
                         );
                         const currentTouchRadius = this.getTouchRadius();
-                        const minDistance = this.isMobileDevice() ? 2 : 5;
+                        const minDistance = this.isMobileDevice() ? 2 : 0;
                         if (screenDistance < currentTouchRadius && screenDistance > minDistance) {
                             affectedCount++;
                         }
@@ -730,15 +730,23 @@
                     const isInFront = this.isParticleInFront(particle);
                     
                     if (this.touchPoint && isInFront) { // Only affect particles in front of the camera
-                        // Use precise screen coordinates for accurate touch targeting
+                        // Desktop: Use original simple projection (particle.x * 0.5) for better shape
+                        // Mobile: Use precise projection for better touch experience
                         const rect = this.canvas.getBoundingClientRect();
                         const centerX = this.canvas.width / 2;
                         const centerY = this.canvas.height / 2;
                         
-                        // Get precise particle screen position using the same projection as rendering
-                        const particleScale = this.projectToScreen(particle);
-                        const particleScreenX = centerX + (particle.x * particleScale);
-                        const particleScreenY = centerY + (particle.y * particleScale);
+                        let particleScreenX, particleScreenY;
+                        if (this.isMobileDevice()) {
+                            // Mobile: precise projection
+                            const particleScale = this.projectToScreen(particle);
+                            particleScreenX = centerX + (particle.x * particleScale);
+                            particleScreenY = centerY + (particle.y * particleScale);
+                        } else {
+                            // Desktop: original simple projection (restore original behavior)
+                            particleScreenX = centerX + particle.x * 0.5;
+                            particleScreenY = centerY + particle.y * 0.5;
+                        }
                         
                         const touchScreenX = this.touchPoint.x - rect.left;
                         const touchScreenY = this.touchPoint.y - rect.top;
@@ -748,12 +756,14 @@
                             Math.pow(particleScreenY - touchScreenY, 2)
                         );
                         
-                        // Device-appropriate touch targeting
+                        // Desktop: no minimum distance (restore original behavior)
+                        // Mobile: keep minimum distance for precision
                         const currentTouchRadius = this.getTouchRadius();
-                        const minDistance = this.isMobileDevice() ? 2 : 5; // Mobile needs smaller minimum distance
+                        const minDistance = this.isMobileDevice() ? 2 : 0;
                         
                         if (screenDistance < currentTouchRadius && screenDistance > minDistance) {
-                            // Device-appropriate falloff and strength
+                            // Desktop: restore original simple distance factor
+                            // Mobile: keep optimized falloff
                             let distanceFactor, repulsionStrength;
                             
                             if (this.isMobileDevice()) {
@@ -763,11 +773,11 @@
                                 const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
                                 repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
                             } else {
-                                // Desktop: balanced falloff (less aggressive than before)
-                                distanceFactor = 1 - screenDistance / currentTouchRadius; // Linear like mobile, but with desktop radius
+                                // Desktop: restore original simple behavior
+                                distanceFactor = 1 - screenDistance / currentTouchRadius;
                                 const speedMultiplier = this.settings.touchSpeed;
                                 const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
-                                repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
+                                repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut;
                             }
                             
                             // Apply force in 3D space based on screen direction
