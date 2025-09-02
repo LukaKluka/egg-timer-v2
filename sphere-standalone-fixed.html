@@ -315,7 +315,7 @@
                 // Touch/click effect properties
                 this.touchPoint = null;
                 this.touchForce = 0;
-                this.touchRadius = 50;
+                this.touchRadius = 80;
                 this.touchDecay = 0.95;
                 
                 this.setupEventListeners();
@@ -471,51 +471,6 @@
                 this.mapViscosityToPhysics(); // Initialize physics after particles are set
             }
             
-            screenTo3D(screenX, screenY) {
-                // Convert 2D screen coordinates to 3D space on the sphere surface
-                const rect = this.canvas.getBoundingClientRect();
-                const centerX = this.canvas.width / 2;
-                const centerY = this.canvas.height / 2;
-                
-                // Calculate normalized coordinates relative to sphere center
-                const relX = (screenX - rect.left - centerX) / this.settings.sphereRadius;
-                const relY = (screenY - rect.top - centerY) / this.settings.sphereRadius;
-                
-                // Check if point is within sphere bounds
-                const distance2D = Math.sqrt(relX * relX + relY * relY);
-                if (distance2D > 1) {
-                    return null; // Point is outside sphere
-                }
-                
-                // Calculate Z coordinate on sphere surface
-                const z = Math.sqrt(1 - relX * relX - relY * relY);
-                
-                // Apply current rotation to get 3D position
-                let x = relX * this.settings.sphereRadius;
-                let y = relY * this.settings.sphereRadius;
-                let z3D = z * this.settings.sphereRadius;
-                
-                // Apply inverse rotation to get world coordinates
-                const cosY = Math.cos(-this.rotationY);
-                const sinY = Math.sin(-this.rotationY);
-                const cosX = Math.cos(-this.rotationX);
-                const sinX = Math.sin(-this.rotationX);
-                
-                // Y rotation
-                const tempX = x * cosY - z3D * sinY;
-                const tempZ = x * sinY + z3D * cosY;
-                x = tempX;
-                z3D = tempZ;
-                
-                // X rotation
-                const tempY = y * cosX - z3D * sinX;
-                const tempZ2 = y * sinX + z3D * cosX;
-                y = tempY;
-                z3D = tempZ2;
-                
-                return { x, y, z: z3D };
-            }
-            
             handlePointerDown(e) {
                 this.isDragging = true;
                 this.lastMouseX = e.clientX;
@@ -526,6 +481,9 @@
                 if (touch3D) {
                     this.touchPoint = { x: e.clientX, y: e.clientY };
                     this.touchForce = 1.0; // Start with full force
+                    console.log('Touch effect activated at:', e.clientX, e.clientY);
+                } else {
+                    console.log('Touch outside sphere bounds');
                 }
                 
                 // Show touch indicator
@@ -551,7 +509,6 @@
             
             handlePointerUp() {
                 this.isDragging = false;
-                // Touch force will decay naturally in updateParticles
             }
             
             applyTouchImpulse(mouseX, mouseY) {
@@ -892,6 +849,33 @@
                 this.physics.flowSpeed = L(1.0, 0.15, vE);
                 this.physics.pushStrength = L(70, 10, vE);     // weaker push when hard
                 this.physics.sigma = L(0.45, 0.9, vE);         // broader, softer spread when hard
+            }
+
+            screenTo3D(screenX, screenY) {
+                // Convert 2D screen coordinates to 3D space on the sphere surface
+                const rect = this.canvas.getBoundingClientRect();
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+                
+                // Calculate normalized coordinates relative to sphere center
+                const relX = (screenX - rect.left - centerX) / this.settings.sphereRadius;
+                const relY = (screenY - rect.top - centerY) / this.settings.sphereRadius;
+                
+                // Check if point is within sphere bounds
+                const distance2D = Math.sqrt(relX * relX + relY * relY);
+                if (distance2D > 1) {
+                    return null; // Point is outside sphere
+                }
+                
+                // Calculate Z coordinate on sphere surface (simplified - no rotation needed)
+                const z = Math.sqrt(1 - relX * relX - relY * relY);
+                
+                // Convert to 3D coordinates (these will be transformed by the existing rotation system)
+                const x = relX * this.settings.sphereRadius;
+                const y = relY * this.settings.sphereRadius;
+                const z3D = z * this.settings.sphereRadius;
+                
+                return { x, y, z: z3D };
             }
         }
         
