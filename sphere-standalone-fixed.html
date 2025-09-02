@@ -542,6 +542,35 @@
             
             handlePointerUp() {
                 this.isDragging = false;
+                
+                // When touch is released, ensure particles return to original distribution
+                if (this.touchPoint) {
+                    // Reset touch effect immediately
+                    this.touchPoint = null;
+                    this.touchForce = 0;
+                    
+                    // Apply stronger spring forces to return particles to base positions
+                    this.particles.forEach(particle => {
+                        // Calculate distance from base position
+                        const distanceFromBase = Math.sqrt(
+                            Math.pow(particle.x - particle.baseX, 2) + 
+                            Math.pow(particle.y - particle.baseY, 2) + 
+                            Math.pow(particle.z - particle.baseZ, 2)
+                        );
+                        
+                        // If particle is far from base, apply extra return force
+                        if (distanceFromBase > this.settings.sphereRadius * 0.1) {
+                            const returnForce = 0.3; // Stronger return force
+                            const dirX = (particle.baseX - particle.x) / distanceFromBase;
+                            const dirY = (particle.baseY - particle.y) / distanceFromBase;
+                            const dirZ = (particle.baseZ - particle.z) / distanceFromBase;
+                            
+                            particle.vx += dirX * returnForce;
+                            particle.vy += dirY * returnForce;
+                            particle.vz += dirZ * returnForce;
+                        }
+                    });
+                }
             }
             
             applyTouchImpulse(mouseX, mouseY) {
@@ -654,10 +683,11 @@
                         particle.vz *= 0.8;
                     }
                     
-                    // Spring force back to base position
-                    const springX = (particle.baseX - particle.x) * springK;
-                    const springY = (particle.baseY - particle.y) * springK;
-                    const springZ = (particle.baseZ - particle.z) * springK;
+                    // Enhanced spring force back to base position - stronger when particles are far from base
+                    const springStrength = springK * (1 + distanceFromBase / this.settings.sphereRadius * 2);
+                    const springX = (particle.baseX - particle.x) * springStrength;
+                    const springY = (particle.baseY - particle.y) * springStrength;
+                    const springZ = (particle.baseZ - particle.z) * springStrength;
                     
                     // Random movement (affected by viscosity and path length, but NOT by speed)
                     // Path length now influences random movement range - longer paths = longer random movements
