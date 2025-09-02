@@ -227,7 +227,7 @@
         
         <div class="touch-indicator" id="touchIndicator">
             Touch the yolk to interact!<br>
-            <small>Only front half is interactive</small>
+            <small>Only front-facing particles respond</small>
         </div>
     </div>
 
@@ -696,9 +696,9 @@
                     const randomY = (Math.random() - 0.5) * randomScale;
                     const randomZ = (Math.random() - 0.5) * randomScale;
                     
-                    // Touch effect: magnetic repulsion from touch point
+                    // Touch effect: magnetic repulsion from touch point (ONLY for front-facing particles)
                     let touchX = 0, touchY = 0, touchZ = 0;
-                    if (this.touchPoint) {
+                    if (this.touchPoint && particle.z > 0) { // Only affect particles on positive Z axis (front half)
                         // Use direct 2D screen coordinates for simpler, more reliable touch effect
                         const rect = this.canvas.getBoundingClientRect();
                         const centerX = this.canvas.width / 2;
