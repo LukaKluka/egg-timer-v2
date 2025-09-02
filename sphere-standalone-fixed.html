@@ -343,7 +343,7 @@
                 // Touch/click effect properties
                 this.touchPoint = null;
                 this.touchForce = 0;
-                this.touchRadius = 100;
+                this.touchRadius = 60; // Reduced for more precise touch targeting
                 this.touchDecay = 0.98;
                 
                 this.setupEventListeners();
@@ -518,6 +518,29 @@
                 this.touchPoint = { x: e.clientX, y: e.clientY };
                 this.touchForce = 1.0; // Start with full force
                 console.log('Touch effect activated at:', e.clientX, e.clientY);
+                
+                // Debug: Count how many particles will be affected
+                let affectedCount = 0;
+                this.particles.forEach(particle => {
+                    if (this.isParticleInFront(particle)) {
+                        const rect = this.canvas.getBoundingClientRect();
+                        const centerX = this.canvas.width / 2;
+                        const centerY = this.canvas.height / 2;
+                        const particleScale = this.projectToScreen(particle);
+                        const particleScreenX = centerX + (particle.x * particleScale);
+                        const particleScreenY = centerY + (particle.y * particleScale);
+                        const touchScreenX = e.clientX - rect.left;
+                        const touchScreenY = e.clientY - rect.top;
+                        const screenDistance = Math.sqrt(
+                            Math.pow(particleScreenX - touchScreenX, 2) + 
+                            Math.pow(particleScreenY - touchScreenY, 2)
+                        );
+                        if (screenDistance < this.touchRadius && screenDistance > 5) {
+                            affectedCount++;
+                        }
+                    }
+                });
+                console.log('Particles affected by touch:', affectedCount);
                 
                 // Show touch indicator
                 this.touchIndicator.classList.add('show');
@@ -704,14 +727,15 @@
                     const isInFront = this.isParticleInFront(particle);
                     
                     if (this.touchPoint && isInFront) { // Only affect particles in front of the camera
-                        // Use direct 2D screen coordinates for simpler, more reliable touch effect
+                        // Use precise screen coordinates for accurate touch targeting
                         const rect = this.canvas.getBoundingClientRect();
                         const centerX = this.canvas.width / 2;
                         const centerY = this.canvas.height / 2;
                         
-                        // Calculate 2D distance from touch point to particle's screen position
-                        const particleScreenX = centerX + particle.x * 0.5; // Approximate screen projection
-                        const particleScreenY = centerY + particle.y * 0.5;
+                        // Get precise particle screen position using the same projection as rendering
+                        const particleScale = this.projectToScreen(particle);
+                        const particleScreenX = centerX + (particle.x * particleScale);
+                        const particleScreenY = centerY + (particle.y * particleScale);
                         
                         const touchScreenX = this.touchPoint.x - rect.left;
                         const touchScreenY = this.touchPoint.y - rect.top;
@@ -721,16 +745,17 @@
                             Math.pow(particleScreenY - touchScreenY, 2)
                         );
                         
-                        if (screenDistance < this.touchRadius && screenDistance > 0) {
+                        // More precise touch targeting with minimum distance threshold
+                        if (screenDistance < this.touchRadius && screenDistance > 5) { // Minimum 5px distance to avoid self-interaction
+                            // Sharper falloff for more precise touch effect
+                            const distanceFactor = Math.pow(1 - screenDistance / this.touchRadius, 2);
+                            
                             // Calculate ease-in/ease-out effect based on touch speed
                             const speedMultiplier = this.settings.touchSpeed;
-                            const distanceFactor = 1 - screenDistance / this.touchRadius;
-                            
-                            // Ease-in: start slow, ease-out: end gentle
                             const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
                             
                             // Strong repulsion force with sensitivity control and speed effects
-                            const repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut;
+                            const repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
                             
                             // Apply force in 3D space based on screen direction
                             const dirX = (particleScreenX - touchScreenX) / screenDistance;
