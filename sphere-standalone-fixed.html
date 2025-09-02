@@ -315,8 +315,8 @@
                 // Touch/click effect properties
                 this.touchPoint = null;
                 this.touchForce = 0;
-                this.touchRadius = 80;
-                this.touchDecay = 0.95;
+                this.touchRadius = 100;
+                this.touchDecay = 0.98;
                 
                 this.setupEventListeners();
                 this.initParticleSystem();
@@ -477,14 +477,9 @@
                 this.lastMouseY = e.clientY;
                 
                 // Create touch effect
-                const touch3D = this.screenTo3D(e.clientX, e.clientY);
-                if (touch3D) {
-                    this.touchPoint = { x: e.clientX, y: e.clientY };
-                    this.touchForce = 1.0; // Start with full force
-                    console.log('Touch effect activated at:', e.clientX, e.clientY);
-                } else {
-                    console.log('Touch outside sphere bounds');
-                }
+                this.touchPoint = { x: e.clientX, y: e.clientY };
+                this.touchForce = 1.0; // Start with full force
+                console.log('Touch effect activated at:', e.clientX, e.clientY);
                 
                 // Show touch indicator
                 this.touchIndicator.classList.add('show');
@@ -636,28 +631,34 @@
                     // Touch effect: magnetic repulsion from touch point
                     let touchX = 0, touchY = 0, touchZ = 0;
                     if (this.touchPoint) {
-                        // Convert 2D touch point to 3D space
-                        const touch3D = this.screenTo3D(this.touchPoint.x, this.touchPoint.y);
+                        // Use direct 2D screen coordinates for simpler, more reliable touch effect
+                        const rect = this.canvas.getBoundingClientRect();
+                        const centerX = this.canvas.width / 2;
+                        const centerY = this.canvas.height / 2;
                         
-                        if (touch3D) {
-                            // Calculate distance from particle to touch point
-                            const touchDistance = Math.sqrt(
-                                Math.pow(particle.x - touch3D.x, 2) + 
-                                Math.pow(particle.y - touch3D.y, 2) + 
-                                Math.pow(particle.z - touch3D.z, 2)
-                            );
+                        // Calculate 2D distance from touch point to particle's screen position
+                        const particleScreenX = centerX + particle.x * 0.5; // Approximate screen projection
+                        const particleScreenY = centerY + particle.y * 0.5;
+                        
+                        const touchScreenX = this.touchPoint.x - rect.left;
+                        const touchScreenY = this.touchPoint.y - rect.top;
+                        
+                        const screenDistance = Math.sqrt(
+                            Math.pow(particleScreenX - touchScreenX, 2) + 
+                            Math.pow(particleScreenY - touchScreenY, 2)
+                        );
+                        
+                        if (screenDistance < this.touchRadius && screenDistance > 0) {
+                            // Strong repulsion force (much stronger than before)
+                            const repulsionStrength = this.touchForce * this.settings.touchStrength * 5.0 * (1 - screenDistance / this.touchRadius);
                             
-                            if (touchDistance < this.touchRadius && touchDistance > 0) {
-                                // Magnetic repulsion force (stronger when closer)
-                                const repulsionStrength = this.touchForce * this.settings.touchStrength * (1 - touchDistance / this.touchRadius);
-                                const repulsionX = (particle.x - touch3D.x) / touchDistance * repulsionStrength;
-                                const repulsionY = (particle.y - touch3D.y) / touchDistance * repulsionStrength;
-                                const repulsionZ = (particle.z - touch3D.z) / touchDistance * repulsionStrength;
-                                
-                                touchX = repulsionX;
-                                touchY = repulsionY;
-                                touchZ = repulsionZ;
-                            }
+                            // Apply force in 3D space based on screen direction
+                            const dirX = (particleScreenX - touchScreenX) / screenDistance;
+                            const dirY = (particleScreenY - touchScreenY) / screenDistance;
+                            
+                            touchX = dirX * repulsionStrength;
+                            touchY = dirY * repulsionStrength;
+                            touchZ = 0; // No Z force for simplicity
                         }
                     }
                     
@@ -849,33 +850,6 @@
                 this.physics.flowSpeed = L(1.0, 0.15, vE);
                 this.physics.pushStrength = L(70, 10, vE);     // weaker push when hard
                 this.physics.sigma = L(0.45, 0.9, vE);         // broader, softer spread when hard
-            }
-
-            screenTo3D(screenX, screenY) {
-                // Convert 2D screen coordinates to 3D space on the sphere surface
-                const rect = this.canvas.getBoundingClientRect();
-                const centerX = this.canvas.width / 2;
-                const centerY = this.canvas.height / 2;
-                
-                // Calculate normalized coordinates relative to sphere center
-                const relX = (screenX - rect.left - centerX) / this.settings.sphereRadius;
-                const relY = (screenY - rect.top - centerY) / this.settings.sphereRadius;
-                
-                // Check if point is within sphere bounds
-                const distance2D = Math.sqrt(relX * relX + relY * relY);
-                if (distance2D > 1) {
-                    return null; // Point is outside sphere
-                }
-                
-                // Calculate Z coordinate on sphere surface (simplified - no rotation needed)
-                const z = Math.sqrt(1 - relX * relX - relY * relY);
-                
-                // Convert to 3D coordinates (these will be transformed by the existing rotation system)
-                const x = relX * this.settings.sphereRadius;
-                const y = relY * this.settings.sphereRadius;
-                const z3D = z * this.settings.sphereRadius;
-                
-                return { x, y, z: z3D };
             }
         }
         
