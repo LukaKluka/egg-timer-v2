@@ -343,7 +343,8 @@
                 // Touch/click effect properties
                 this.touchPoint = null;
                 this.touchForce = 0;
-                this.touchRadius = 60; // Reduced for more precise touch targeting
+                this.touchRadius = 60; // Desktop precision
+                this.touchRadiusMobile = 100; // Mobile needs larger radius
                 this.touchDecay = 0.98;
                 
                 this.setupEventListeners();
@@ -535,7 +536,9 @@
                             Math.pow(particleScreenX - touchScreenX, 2) + 
                             Math.pow(particleScreenY - touchScreenY, 2)
                         );
-                        if (screenDistance < this.touchRadius && screenDistance > 5) {
+                        const currentTouchRadius = this.getTouchRadius();
+                        const minDistance = this.isMobileDevice() ? 2 : 5;
+                        if (screenDistance < currentTouchRadius && screenDistance > minDistance) {
                             affectedCount++;
                         }
                     }
@@ -745,17 +748,27 @@
                             Math.pow(particleScreenY - touchScreenY, 2)
                         );
                         
-                        // More precise touch targeting with minimum distance threshold
-                        if (screenDistance < this.touchRadius && screenDistance > 5) { // Minimum 5px distance to avoid self-interaction
-                            // Sharper falloff for more precise touch effect
-                            const distanceFactor = Math.pow(1 - screenDistance / this.touchRadius, 2);
+                        // Device-appropriate touch targeting
+                        const currentTouchRadius = this.getTouchRadius();
+                        const minDistance = this.isMobileDevice() ? 2 : 5; // Mobile needs smaller minimum distance
+                        
+                        if (screenDistance < currentTouchRadius && screenDistance > minDistance) {
+                            // Device-appropriate falloff and strength
+                            let distanceFactor, repulsionStrength;
                             
-                            // Calculate ease-in/ease-out effect based on touch speed
-                            const speedMultiplier = this.settings.touchSpeed;
-                            const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
-                            
-                            // Strong repulsion force with sensitivity control and speed effects
-                            const repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
+                            if (this.isMobileDevice()) {
+                                // Mobile: gentler falloff for better touch experience
+                                distanceFactor = 1 - screenDistance / currentTouchRadius;
+                                const speedMultiplier = this.settings.touchSpeed;
+                                const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
+                                repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
+                            } else {
+                                // Desktop: sharper falloff for precision
+                                distanceFactor = Math.pow(1 - screenDistance / currentTouchRadius, 2);
+                                const speedMultiplier = this.settings.touchSpeed;
+                                const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
+                                repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut * distanceFactor;
+                            }
                             
                             // Apply force in 3D space based on screen direction
                             const dirX = (particleScreenX - touchScreenX) / screenDistance;
@@ -892,6 +905,17 @@
                 // Consider particles in front if they have a scale above threshold
                 // This ensures only visible, front-facing particles respond to touch
                 return scale > 0.6; // Adjust this threshold as needed
+            }
+            
+            isMobileDevice() {
+                // Detect if user is on a mobile device
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                       (window.innerWidth <= 768);
+            }
+            
+            getTouchRadius() {
+                // Return appropriate touch radius based on device type
+                return this.isMobileDevice() ? this.touchRadiusMobile : this.touchRadius;
             }
             
             drawParticles() {
