@@ -268,8 +268,13 @@
             </div>
             <div class="control-row">
                 <label>Touch Sensitivity:</label>
-                <input type="range" id="touchSensitivity" min="0.1" max="15.0" value="5.0" step="0.1">
+                <input type="range" id="touchSensitivity" min="0.1" max="25.0" value="5.0" step="0.1">
                 <span class="value-display" id="touchSensitivityValue">5.0</span>
+            </div>
+            <div class="control-row">
+                <label>Touch Speed:</label>
+                <input type="range" id="touchSpeed" min="0.1" max="5.0" value="1.0" step="0.1">
+                <span class="value-display" id="touchSpeedValue">1.0</span>
             </div>
         </div>
 
@@ -289,7 +294,8 @@
         <p><strong>Drag:</strong> Rotate the yolk manually</p>
         <p><strong>Viscosity:</strong> Higher = firmer yolk (like hard-boiled)</p>
         <p><strong>Particles:</strong> Adjust count and distribution</p>
-        <p><strong>Touch Sensitivity:</strong> Higher = stronger magnetic push effect (0.1 - 15.0)</p>
+        <p><strong>Touch Sensitivity:</strong> Higher = stronger magnetic push effect (0.1 - 25.0)</p>
+        <p><strong>Touch Speed:</strong> Controls ease-in/ease-out timing of touch effect</p>
     </div>
 
     <script>
@@ -309,6 +315,7 @@
                     particleSpeed: 1.0,    // How fast particles move
                     touchStrength: 1.5,
                     touchSensitivity: 5.0, // New setting for touch sensitivity
+                    touchSpeed: 1.0, // New setting for touch effect speed
                     rotationSpeed: 0.5,
                     sphereRadius: 175,
                     particleSize: 2
@@ -393,6 +400,11 @@
                 
                 document.getElementById('touchSensitivity').addEventListener('input', (e) => {
                     this.settings.touchSensitivity = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('touchSpeed').addEventListener('input', (e) => {
+                    this.settings.touchSpeed = parseFloat(e.target.value);
                     this.updateDisplay();
                 });
                 
@@ -665,8 +677,15 @@
                         );
                         
                         if (screenDistance < this.touchRadius && screenDistance > 0) {
-                            // Strong repulsion force with sensitivity control
-                            const repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * (1 - screenDistance / this.touchRadius);
+                            // Calculate ease-in/ease-out effect based on touch speed
+                            const speedMultiplier = this.settings.touchSpeed;
+                            const distanceFactor = 1 - screenDistance / this.touchRadius;
+                            
+                            // Ease-in: start slow, ease-out: end gentle
+                            const easeInOut = Math.sin(distanceFactor * Math.PI) * speedMultiplier;
+                            
+                            // Strong repulsion force with sensitivity control and speed effects
+                            const repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * easeInOut;
                             
                             // Apply force in 3D space based on screen direction
                             const dirX = (particleScreenX - touchScreenX) / screenDistance;
@@ -843,6 +862,7 @@
                 document.getElementById('particleSpeedValue').textContent = this.settings.particleSpeed.toFixed(1);
                 document.getElementById('touchStrengthValue').textContent = this.settings.touchStrength.toFixed(1);
                 document.getElementById('touchSensitivityValue').textContent = this.settings.touchSensitivity.toFixed(1);
+                document.getElementById('touchSpeedValue').textContent = this.settings.touchSpeed.toFixed(1);
                 document.getElementById('rotationSpeedValue').textContent = this.settings.rotationSpeed.toFixed(1);
             }
 
