@@ -262,6 +262,11 @@
                 <input type="range" id="touchStrength" min="0.5" max="3.0" value="1.5" step="0.1">
                 <span class="value-display" id="touchStrengthValue">1.5</span>
             </div>
+            <div class="control-row">
+                <label>Touch Sensitivity:</label>
+                <input type="range" id="touchSensitivity" min="0.1" max="10.0" value="5.0" step="0.1">
+                <span class="value-display" id="touchSensitivityValue">5.0</span>
+            </div>
         </div>
 
         <div class="control-group">
@@ -298,6 +303,7 @@
                     pathLength: 1.0,      // How far particles can travel from base position
                     particleSpeed: 1.0,    // How fast particles move
                     touchStrength: 1.5,
+                    touchSensitivity: 5.0, // New setting for touch sensitivity
                     rotationSpeed: 0.5,
                     sphereRadius: 175,
                     particleSize: 2
@@ -377,6 +383,11 @@
                 
                 document.getElementById('touchStrength').addEventListener('input', (e) => {
                     this.settings.touchStrength = parseFloat(e.target.value);
+                    this.updateDisplay();
+                });
+                
+                document.getElementById('touchSensitivity').addEventListener('input', (e) => {
+                    this.settings.touchSensitivity = parseFloat(e.target.value);
                     this.updateDisplay();
                 });
                 
@@ -649,8 +660,8 @@
                         );
                         
                         if (screenDistance < this.touchRadius && screenDistance > 0) {
-                            // Strong repulsion force (much stronger than before)
-                            const repulsionStrength = this.touchForce * this.settings.touchStrength * 5.0 * (1 - screenDistance / this.touchRadius);
+                            // Strong repulsion force with sensitivity control
+                            const repulsionStrength = this.touchForce * this.settings.touchStrength * this.settings.touchSensitivity * (1 - screenDistance / this.touchRadius);
                             
                             // Apply force in 3D space based on screen direction
                             const dirX = (particleScreenX - touchScreenX) / screenDistance;
@@ -826,6 +837,7 @@
                 document.getElementById('pathLengthValue').textContent = this.settings.pathLength.toFixed(1);
                 document.getElementById('particleSpeedValue').textContent = this.settings.particleSpeed.toFixed(1);
                 document.getElementById('touchStrengthValue').textContent = this.settings.touchStrength.toFixed(1);
+                document.getElementById('touchSensitivityValue').textContent = this.settings.touchSensitivity.toFixed(1);
                 document.getElementById('rotationSpeedValue').textContent = this.settings.rotationSpeed.toFixed(1);
             }
 
