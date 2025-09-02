@@ -227,7 +227,7 @@
         
         <div class="touch-indicator" id="touchIndicator">
             Touch the yolk to interact!<br>
-            <small>Only front-facing particles respond</small>
+            <small>Only camera-facing particles respond</small>
         </div>
     </div>
 
@@ -696,9 +696,14 @@
                     const randomY = (Math.random() - 0.5) * randomScale;
                     const randomZ = (Math.random() - 0.5) * randomScale;
                     
-                    // Touch effect: magnetic repulsion from touch point (ONLY for front-facing particles)
+                    // Touch effect: magnetic repulsion from touch point (ONLY for view-facing particles)
                     let touchX = 0, touchY = 0, touchZ = 0;
-                    if (this.touchPoint && particle.z > 0) { // Only affect particles on positive Z axis (front half)
+                    
+                    // Calculate view-relative Z coordinate (perpendicular to camera view)
+                    // This ensures particles facing the camera respond to touch regardless of world position
+                    const viewZ = this.calculateViewZ(particle);
+                    
+                    if (this.touchPoint && viewZ > 0) { // Only affect particles facing the camera
                         // Use direct 2D screen coordinates for simpler, more reliable touch effect
                         const rect = this.canvas.getBoundingClientRect();
                         const centerX = this.canvas.width / 2;
@@ -826,6 +831,36 @@
                 particle.screenY = this.canvas.height / 2 + y * scale;
                 
                 return scale;
+            }
+            
+            calculateViewZ(particle) {
+                // Calculate the Z coordinate relative to the current camera view
+                // This ensures particles facing the camera respond to touch regardless of world position
+                
+                // Apply the same rotations as in projectToScreen to get view-relative coordinates
+                let x = particle.x;
+                let y = particle.y;
+                let z = particle.z;
+                
+                // Y rotation
+                const cosY = Math.cos(this.rotationY);
+                const sinY = Math.sin(this.rotationY);
+                const tempX = x * cosY - z * sinY;
+                const tempZ = x * sinY + z * cosY;
+                x = tempX;
+                z = tempZ;
+                
+                // X rotation
+                const cosX = Math.cos(this.rotationX);
+                const sinX = Math.sin(this.rotationX);
+                const tempY = y * cosX - z * sinX;
+                const tempZ2 = y * sinX + z * cosX;
+                y = tempY;
+                z = tempZ2;
+                
+                // Return the view-relative Z coordinate
+                // Positive Z means the particle is facing the camera
+                return z;
             }
             
             drawParticles() {
