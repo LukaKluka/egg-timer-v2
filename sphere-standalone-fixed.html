@@ -606,7 +606,8 @@
                     const springZ = (particle.baseZ - particle.z) * springK;
                     
                     // Random movement (affected by viscosity and path length, but NOT by speed)
-                    const randomScale = this.settings.randomMovement * (1 - this.settings.viscosity * 0.3) * pathLengthMultiplier;
+                    // Path length now influences random movement range - longer paths = longer random movements
+                    const randomScale = this.settings.randomMovement * (1 - this.settings.viscosity * 0.3) * Math.sqrt(pathLengthMultiplier);
                     const randomX = (Math.random() - 0.5) * randomScale;
                     const randomY = (Math.random() - 0.5) * randomScale;
                     const randomZ = (Math.random() - 0.5) * randomScale;
